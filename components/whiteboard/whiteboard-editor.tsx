@@ -291,6 +291,51 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     const newPoints = [...shape.points];
     
     switch (shape.tool) {
+      case "pen":
+      case "eraser":
+        // For pen and eraser, we need to scale all points
+        const bounds = getShapeBounds(shape);
+        const width = bounds.x2 - bounds.x1;
+        const height = bounds.y2 - bounds.y1;
+        
+        // Calculate scale factors based on which handle is being dragged
+        let scaleX = 1;
+        let scaleY = 1;
+        let translateX = 0;
+        let translateY = 0;
+        
+        switch (handle) {
+          case "tl": // Top-left
+            scaleX = (width - dx) / width;
+            scaleY = (height - dy) / height;
+            translateX = dx;
+            translateY = dy;
+            break;
+          case "tr": // Top-right
+            scaleX = (width + dx) / width;
+            scaleY = (height - dy) / height;
+            translateY = dy;
+            break;
+          case "bl": // Bottom-left
+            scaleX = (width - dx) / width;
+            scaleY = (height + dy) / height;
+            translateX = dx;
+            break;
+          case "br": // Bottom-right
+            scaleX = (width + dx) / width;
+            scaleY = (height + dy) / height;
+            break;
+        }
+        
+        // Apply scaling to all points
+        return {
+          ...shape,
+          points: shape.points.map(point => ({
+            x: bounds.x1 + (point.x - bounds.x1) * scaleX + translateX,
+            y: bounds.y1 + (point.y - bounds.y1) * scaleY + translateY
+          }))
+        };
+        
       case "rectangle":
       case "arrow":
         if (shape.points.length >= 2) {
@@ -364,7 +409,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       ...shape,
       points: newPoints
     };
-  }, []);
+  }, [getShapeBounds]);
 
   // Redraw entire canvas
   const redrawCanvas = useCallback(() => {
@@ -863,6 +908,149 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         isReadOnly={isReadOnly}
         onClear={clearCanvas}
       />
+      
+      {/* Property editor for selected shape */}
+      {selectedShape && (
+        <div className="absolute right-4 top-4 flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-800/90 p-4 shadow-lg backdrop-blur z-10">
+          <div className="text-sm font-medium text-white mb-2 flex items-center justify-between">
+            <span>Edit {selectedShape.tool.charAt(0).toUpperCase() + selectedShape.tool.slice(1)}</span>
+            <button 
+              className="text-zinc-400 hover:text-white"
+              onClick={() => {
+                // Deselect the shape
+                setSelectedShape(null);
+                setShapes(shapes.map(s => ({ ...s, selected: false })));
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Color picker - only show for non-eraser tools */}
+          {selectedShape.tool !== "eraser" && (
+            <div>
+              <label className="text-xs text-zinc-400 mb-1 block">Color</label>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {["#FFFFFF", "#FF4444", "#44FF44", "#4444FF", "#FFFF44", "#FF44FF", "#44FFFF"].map((c) => (
+                  <button
+                    key={c}
+                    className="h-6 w-6 rounded-full p-0 flex items-center justify-center border border-zinc-700 hover:border-white transition-colors"
+                    style={{ backgroundColor: c }}
+                    onClick={() => {
+                      // Update the selected shape's color
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          // For eraser, always keep the background color
+                          if (shape.tool === "eraser") {
+                            return shape;
+                          }
+                          
+                          return {
+                            ...shape,
+                            color: c
+                          };
+                        }
+                        return shape;
+                      });
+                      
+                      setShapes(updatedShapes);
+                      
+                      // Update the selected shape
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        
+                        // Emit socket event for shape update
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        
+                        // Save canvas state
+                        saveCanvasState(updatedShapes);
+                      }
+                    }}
+                  >
+                    {selectedShape.color === c && <div className="h-3 w-3 rounded-full bg-white" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Width slider */}
+          <div className="mb-2">
+            <label className="text-xs text-zinc-400 mb-1 block">Width: {selectedShape.width}px</label>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              value={selectedShape.width}
+              onChange={(e) => {
+                const newWidth = parseInt(e.target.value);
+                
+                // Update the selected shape's width
+                const updatedShapes = shapes.map(shape => {
+                  if (shape.id === selectedShape.id) {
+                    return {
+                      ...shape,
+                      width: newWidth
+                    };
+                  }
+                  return shape;
+                });
+                
+                setShapes(updatedShapes);
+                
+                // Update the selected shape
+                const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                if (updatedSelectedShape) {
+                  setSelectedShape(updatedSelectedShape);
+                  
+                  // Emit socket event for shape update
+                  socket?.emit("shape-update", {
+                    whiteboardId: id,
+                    instanceId,
+                    shape: updatedSelectedShape,
+                    shapes: updatedShapes
+                  });
+                  
+                  // Save canvas state
+                  saveCanvasState(updatedShapes);
+                }
+              }}
+              className="w-full accent-blue-500"
+            />
+          </div>
+          
+          {/* Delete button */}
+          <button
+            className="mt-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+            onClick={() => {
+              // Remove the selected shape
+              const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
+              
+              setShapes(updatedShapes);
+              setSelectedShape(null);
+              
+              // Emit socket event for shape update
+              socket?.emit("shape-update-end", {
+                whiteboardId: id,
+                instanceId,
+                shapes: updatedShapes
+              });
+              
+              // Save canvas state
+              saveCanvasState(updatedShapes);
+            }}
+          >
+            Delete Shape
+          </button>
+        </div>
+      )}
+      
       <canvas
         ref={canvasRef}
         className={cn(
