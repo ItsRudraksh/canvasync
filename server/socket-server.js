@@ -122,6 +122,21 @@ io.on("connection", (socket) => {
     })
   })
 
+  // Handle undo/redo events
+  socket.on("undo-redo", ({ whiteboardId, instanceId, shapes }) => {
+    console.log(`Undo/redo in whiteboard ${whiteboardId} by ${instanceId}`)
+    
+    // Update the whiteboard shapes
+    if (whiteboardShapes.has(whiteboardId)) {
+      whiteboardShapes.set(whiteboardId, shapes)
+    }
+    
+    socket.to(whiteboardId).emit("undo-redo-update", {
+      instanceId,
+      shapes,
+    })
+  })
+
   // Handle clear canvas
   socket.on("clear-canvas", ({ whiteboardId, instanceId }) => {
     console.log(`Canvas cleared in whiteboard ${whiteboardId} by ${instanceId}`)

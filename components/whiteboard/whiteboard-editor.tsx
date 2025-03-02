@@ -64,6 +64,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const [startPanPoint, setStartPanPoint] = useState<Point | null>(null)
   const [shapesToErase, setShapesToErase] = useState<string[]>([])
+  
+  // History state for undo/redo
+  const [history, setHistory] = useState<Shape[][]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
 
   // Initialize canvas context
   const getContext = useCallback(() => {
@@ -459,6 +465,82 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     [id]
   );
 
+  // Add to history
+  const addToHistory = useCallback((newShapes: Shape[]) => {
+    // Create a deep copy of the shapes to avoid reference issues
+    const shapesCopy = JSON.parse(JSON.stringify(newShapes));
+    
+    // If we're not at the end of the history, truncate it
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    // Add the new state to history
+    newHistory.push(shapesCopy);
+    
+    // Limit history size to prevent memory issues (e.g., keep last 50 states)
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    
+    // Update undo/redo availability
+    setCanUndo(newHistory.length > 1);
+    setCanRedo(false);
+  }, [history, historyIndex]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      const previousState = history[newIndex];
+      
+      // Update shapes with the previous state
+      setShapes(previousState);
+      setHistoryIndex(newIndex);
+      
+      // Update undo/redo availability
+      setCanUndo(newIndex > 0);
+      setCanRedo(true);
+      
+      // Emit socket event for undo
+      socket?.emit("undo-redo", {
+        whiteboardId: id,
+        instanceId,
+        shapes: previousState
+      });
+      
+      // Save canvas state
+      saveCanvasState(previousState);
+    }
+  }, [history, historyIndex, id, instanceId, socket, saveCanvasState]);
+
+  // Handle redo
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const nextState = history[newIndex];
+      
+      // Update shapes with the next state
+      setShapes(nextState);
+      setHistoryIndex(newIndex);
+      
+      // Update undo/redo availability
+      setCanUndo(true);
+      setCanRedo(newIndex < history.length - 1);
+      
+      // Emit socket event for redo
+      socket?.emit("undo-redo", {
+        whiteboardId: id,
+        instanceId,
+        shapes: nextState
+      });
+      
+      // Save canvas state
+      saveCanvasState(nextState);
+    }
+  }, [history, historyIndex, id, instanceId, socket, saveCanvasState]);
+
   // Handle eraser functionality
   const handleEraserMove = useCallback((x: number, y: number) => {
     // Find shapes that intersect with the eraser
@@ -512,9 +594,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     // Save canvas state
     saveCanvasState(updatedShapes);
     
+    // Add to history after erasing
+    addToHistory(updatedShapes);
+    
     // Clear shapes to erase
     setShapesToErase([]);
-  }, [id, instanceId, shapes, shapesToErase, socket, saveCanvasState]);
+  }, [id, instanceId, shapes, shapesToErase, socket, saveCanvasState, addToHistory]);
 
   // Effect to reset shapesToErase when tool changes
   useEffect(() => {
@@ -540,6 +625,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         });
         
         saveCanvasState(shapes);
+        
+        // Add to history
+        addToHistory(shapes);
       }
       
       setDragStartPoint(null);
@@ -560,6 +648,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         });
         
         saveCanvasState(shapes);
+        
+        // Add to history
+        addToHistory(shapes);
       }
       
       return;
@@ -570,6 +661,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       handleEraserEnd();
       setIsDrawing(false);
       setCurrentShape(null);
+      
+      // Add to history after erasing
+      addToHistory(shapes);
       return;
     }
 
@@ -588,10 +682,16 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
     // Save canvas state to database
     saveCanvasState(updatedShapes);
-  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing, tool, handleEraserEnd]);
+    
+    // Add to history
+    addToHistory(updatedShapes);
+  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing, tool, handleEraserEnd, addToHistory]);
 
   // Clear canvas
   const clearCanvas = useCallback(() => {
+    // Add current state to history before clearing
+    addToHistory(shapes);
+    
     setShapes([])
     socket?.emit("clear-canvas", {
       whiteboardId: id,
@@ -600,7 +700,10 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     
     // Save empty canvas state to database
     saveCanvasState([]);
-  }, [id, instanceId, socket, saveCanvasState]);
+    
+    // Add empty state to history
+    addToHistory([]);
+  }, [id, instanceId, socket, saveCanvasState, shapes, addToHistory]);
 
   // Handle pointer down event
   const handlePointerDown = useCallback(
@@ -945,6 +1048,10 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           const updatedShapes = [...prev, shape];
           // Save canvas state when receiving remote updates
           saveCanvasState(updatedShapes);
+          
+          // Add to history
+          addToHistory(updatedShapes);
+          
           return updatedShapes;
         });
       }
@@ -965,6 +1072,10 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         console.log("Remote shape update ended");
         // Update shapes with the final remote shapes
         setShapes(remoteShapes);
+        
+        // Add to history
+        addToHistory(remoteShapes);
+        
         // Force redraw
         redrawCanvas();
       }
@@ -980,12 +1091,45 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
+    socket.on("undo-redo-update", ({ instanceId: remoteId, shapes: remoteShapes }) => {
+      if (remoteId !== instanceId) {
+        console.log("Remote undo/redo update received");
+        // Update shapes with the remote shapes
+        setShapes(remoteShapes);
+        
+        // Add to history
+        const shapesCopy = JSON.parse(JSON.stringify(remoteShapes));
+        setHistory(prev => {
+          const newHistory = [...prev, shapesCopy];
+          // Limit history size
+          if (newHistory.length > 50) {
+            return newHistory.slice(newHistory.length - 50);
+          }
+          return newHistory;
+        });
+        setHistoryIndex(prev => prev + 1);
+        
+        // Update undo/redo availability
+        setCanUndo(true);
+        setCanRedo(false);
+        
+        // Force redraw
+        redrawCanvas();
+      }
+    })
+
     socket.on("canvas-cleared", ({ instanceId: remoteId }) => {
       if (remoteId !== instanceId) {
         console.log("Remote canvas cleared");
         setShapes([]);
         // Save empty canvas state when canvas is cleared remotely
         saveCanvasState([]);
+        
+        // Add to history
+        setHistory(prev => [...prev, []]);
+        setHistoryIndex(prev => prev + 1);
+        setCanUndo(true);
+        setCanRedo(false);
       }
     })
 
@@ -1021,11 +1165,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       socket.off("shape-updated")
       socket.off("shape-update-ended")
       socket.off("eraser-highlighted")
+      socket.off("undo-redo-update")
       socket.off("canvas-cleared")
       socket.off("cursor-update")
       socket.off("user-left")
     }
-  }, [socket, id, instanceId, currentUser, drawShape, redrawCanvas, saveCanvasState])
+  }, [socket, id, instanceId, currentUser, drawShape, redrawCanvas, saveCanvasState, addToHistory])
 
   // Redraw canvas when shapes change
   useEffect(() => {
@@ -1041,6 +1186,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         if (Array.isArray(parsedData)) {
           setShapes(parsedData);
           console.log("Loaded initial data:", parsedData.length, "shapes");
+          
+          // Initialize history with initial data
+          setHistory([parsedData]);
+          setHistoryIndex(0);
+          setCanUndo(false);
+          setCanRedo(false);
         } else {
           console.warn("Initial data is not an array:", parsedData);
         }
@@ -1048,10 +1199,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         console.error("Failed to parse initial data:", error);
         // If parsing fails, initialize with empty array
         setShapes([]);
+        setHistory([[]]);
+        setHistoryIndex(0);
       }
     } else {
       // If no initial data, initialize with empty array
       setShapes([]);
+      setHistory([[]]);
+      setHistoryIndex(0);
       console.log("No initial data provided, starting with empty canvas");
     }
   }, [initialData]);
@@ -1067,6 +1222,10 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         setWidth={setWidth}
         isReadOnly={isReadOnly}
         onClear={clearCanvas}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
       
       {/* Property editor for selected shape */}

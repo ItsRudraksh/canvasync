@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, ChevronDown } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -26,6 +26,10 @@ interface WhiteboardToolbarProps {
   setWidth: (width: number) => void
   isReadOnly: boolean
   onClear: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
 }
 
 const tools = [
@@ -57,30 +61,20 @@ export function WhiteboardToolbar({
   setWidth,
   isReadOnly,
   onClear,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }: WhiteboardToolbarProps) {
-  const [showWidthDropdown, setShowWidthDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showWidthSlider, setShowWidthSlider] = useState(false);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowWidthDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Show width dropdown when pen tool is selected
+  // Show width slider when drawing tools are selected
   useEffect(() => {
     if (tool === "pen" || tool === "arrow" || tool === "rectangle" || tool === "circle") {
-      setShowWidthDropdown(true);
+      setShowWidthSlider(true);
     } else {
-      setShowWidthDropdown(false);
+      setShowWidthSlider(false);
     }
   }, [tool]);
 
@@ -105,6 +99,49 @@ export function WhiteboardToolbar({
           ))}
         </TooltipProvider>
       </div>
+      
+      {/* Undo/Redo buttons */}
+      <div className="h-px bg-border" />
+      <div className="flex flex-col gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onUndo}
+                disabled={!canUndo}
+                className={!canUndo ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                <Undo className="h-4 w-4" />
+                <span className="sr-only">Undo</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Undo</p>
+            </TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onRedo}
+                disabled={!canRedo}
+                className={!canRedo ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                <Redo className="h-4 w-4" />
+                <span className="sr-only">Redo</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Redo</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      
       <div className="h-px bg-border" />
       <div className="flex flex-col gap-2">
         {colors.map((c) => (
@@ -122,35 +159,47 @@ export function WhiteboardToolbar({
         ))}
       </div>
       
-      {/* Width dropdown for pen tool */}
-      {showWidthDropdown && (
-        <div ref={dropdownRef} className="relative">
-          <div className="h-px bg-border" />
-          <div className="p-2 flex flex-col items-center">
-            <div className="text-xs text-zinc-400 mb-1">Width: {width}px</div>
-            <div className="flex items-center gap-2 mb-2">
+      {/* Vertical width slider */}
+      {showWidthSlider && (
+        <div ref={sliderRef} className="mt-2">
+          <div className="h-px bg-border mb-2" />
+          <div className="px-2 flex flex-col items-center">
+            <div className="text-xs text-zinc-400 mb-2 font-medium">Width: {width}px</div>
+            
+            {/* Width preview */}
+            <div 
+              className="h-6 w-6 rounded-full border border-zinc-600 mb-2"
+              style={{ backgroundColor: color }}
+            >
+              <div className="h-full w-full rounded-full flex items-center justify-center">
+                <div 
+                  className="rounded-full"
+                  style={{ 
+                    width: `${Math.min(width * 1.2, 20)}px`, 
+                    height: `${Math.min(width * 1.2, 20)}px`,
+                    backgroundColor: color
+                  }}
+                />
+              </div>
+            </div>
+            
+            {/* Vertical slider with improved visibility */}
+            <div className="flex items-center h-32 mb-1">
               <Slider
                 min={1}
                 max={20}
                 step={1}
                 value={[width]}
                 onValueChange={(value) => setWidth(value[0])}
-                className="w-20"
+                orientation="vertical"
+                className="h-full w-8 bg-zinc-700/50 rounded-md p-1"
               />
-              <div 
-                className="h-6 w-6 rounded-full flex-shrink-0 border border-zinc-600"
-                style={{ backgroundColor: color }}
-              >
-                <div className="h-full w-full rounded-full flex items-center justify-center">
-                  <div 
-                    className="rounded-full bg-current"
-                    style={{ 
-                      width: `${Math.min(width * 1.2, 20)}px`, 
-                      height: `${Math.min(width * 1.2, 20)}px`,
-                      backgroundColor: color
-                    }}
-                  />
-                </div>
+              
+              {/* Width markers */}
+              <div className="ml-1 h-full flex flex-col justify-between py-1">
+                <span className="text-[10px] text-zinc-500">20</span>
+                <span className="text-[10px] text-zinc-500">10</span>
+                <span className="text-[10px] text-zinc-500">1</span>
               </div>
             </div>
           </div>
