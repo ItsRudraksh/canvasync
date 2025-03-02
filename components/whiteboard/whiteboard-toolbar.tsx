@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 
 interface WhiteboardToolbarProps {
   tool: string
@@ -66,173 +66,164 @@ export function WhiteboardToolbar({
   canUndo = false,
   canRedo = false,
 }: WhiteboardToolbarProps) {
-  const [showWidthSlider, setShowWidthSlider] = useState(false);
-  const sliderRef = useRef<HTMLDivElement>(null);
+  const [showPenSettings, setShowPenSettings] = useState(false);
 
-  // Show width slider when drawing tools are selected
+  // Show pen settings when drawing tools are selected
   useEffect(() => {
     if (tool === "pen" || tool === "arrow" || tool === "rectangle" || tool === "circle") {
-      setShowWidthSlider(true);
+      setShowPenSettings(true);
     } else {
-      setShowWidthSlider(false);
+      setShowPenSettings(false);
     }
   }, [tool]);
 
   if (isReadOnly) return null
 
   return (
-    <div className="absolute left-4 top-4 flex flex-col gap-4 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
-      <div className="flex flex-col gap-2">
-        <TooltipProvider>
-          {tools.map((t) => (
-            <Tooltip key={t.id}>
+    <>
+      {/* Main Toolbar */}
+      <div className="absolute left-4 top-4 flex flex-col gap-4 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
+        <div className="flex flex-col gap-2">
+          <TooltipProvider>
+            {tools.map((t) => (
+              <Tooltip key={t.id}>
+                <TooltipTrigger asChild>
+                  <Button variant={tool === t.id ? "default" : "ghost"} size="icon" onClick={() => setTool(t.id)}>
+                    <t.icon className="h-4 w-4" />
+                    <span className="sr-only">{t.label}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{t.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </TooltipProvider>
+        </div>
+        
+        {/* Undo/Redo buttons */}
+        <div className="h-px bg-border" />
+        <div className="flex flex-col gap-2">
+          <TooltipProvider>
+            <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant={tool === t.id ? "default" : "ghost"} size="icon" onClick={() => setTool(t.id)}>
-                  <t.icon className="h-4 w-4" />
-                  <span className="sr-only">{t.label}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  className={!canUndo ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  <Undo className="h-4 w-4" />
+                  <span className="sr-only">Undo</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>{t.label}</p>
+                <p>Undo</p>
               </TooltipContent>
             </Tooltip>
-          ))}
-        </TooltipProvider>
-      </div>
-      
-      {/* Undo/Redo buttons */}
-      <div className="h-px bg-border" />
-      <div className="flex flex-col gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onUndo}
-                disabled={!canUndo}
-                className={!canUndo ? "opacity-50 cursor-not-allowed" : ""}
-              >
-                <Undo className="h-4 w-4" />
-                <span className="sr-only">Undo</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Undo</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onRedo}
-                disabled={!canRedo}
-                className={!canRedo ? "opacity-50 cursor-not-allowed" : ""}
-              >
-                <Redo className="h-4 w-4" />
-                <span className="sr-only">Redo</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Redo</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-      
-      <div className="h-px bg-border" />
-      <div className="flex flex-col gap-2">
-        {colors.map((c) => (
-          <Button
-            key={c}
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-full p-0"
-            style={{ backgroundColor: c }}
-            onClick={() => setColor(c)}
-          >
-            {color === c && <div className="h-4 w-4 rounded-full border-2 border-zinc-800" />}
-            <span className="sr-only">Select color {c}</span>
-          </Button>
-        ))}
-      </div>
-      
-      {/* Vertical width slider */}
-      {showWidthSlider && (
-        <div ref={sliderRef} className="mt-2">
-          <div className="h-px bg-border mb-2" />
-          <div className="px-2 flex flex-col items-center">
-            <div className="text-xs text-zinc-400 mb-2 font-medium">Width: {width}px</div>
             
-            {/* Width preview */}
-            <div 
-              className="h-6 w-6 rounded-full border border-zinc-600 mb-2"
-              style={{ backgroundColor: color }}
-            >
-              <div className="h-full w-full rounded-full flex items-center justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  className={!canRedo ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  <Redo className="h-4 w-4" />
+                  <span className="sr-only">Redo</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Redo</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        
+        <div className="h-px bg-border" />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-destructive">
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Clear canvas</span>
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove all drawings from the canvas. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onClear}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Clear
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
+      {/* Pen Settings Box */}
+      {showPenSettings && (
+        <div className="absolute right-4 top-4 rounded-lg border bg-zinc-800/90 p-4 shadow-lg backdrop-blur">
+          <div className="mb-4">
+            <h3 className="text-sm font-medium mb-2">Color</h3>
+            <div className="flex flex-wrap gap-2">
+              {colors.map((c) => (
+                <Button
+                  key={c}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full p-0"
+                  style={{ backgroundColor: c }}
+                  onClick={() => setColor(c)}
+                >
+                  {color === c && <div className="h-5 w-5 rounded-full border-2 border-zinc-800" />}
+                  <span className="sr-only">Select color {c}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium mb-2">Stroke Width: {width}px</h3>
+            <div className="flex items-center gap-4">
+              <div 
+                className="h-8 w-8 rounded-full border border-zinc-600 flex items-center justify-center"
+                style={{ backgroundColor: color }}
+              >
                 <div 
                   className="rounded-full"
                   style={{ 
-                    width: `${Math.min(width * 1.2, 20)}px`, 
-                    height: `${Math.min(width * 1.2, 20)}px`,
+                    width: `${Math.min(width * 1.5, 24)}px`, 
+                    height: `${Math.min(width * 1.5, 24)}px`,
                     backgroundColor: color
                   }}
                 />
               </div>
-            </div>
-            
-            {/* Vertical slider with improved visibility */}
-            <div className="flex items-center h-32 mb-1">
-              <Slider
-                min={1}
-                max={20}
-                step={1}
-                value={[width]}
-                onValueChange={(value) => setWidth(value[0])}
-                orientation="vertical"
-                className="h-full w-8 bg-zinc-700/50 rounded-md p-1"
-              />
-              
-              {/* Width markers */}
-              <div className="ml-1 h-full flex flex-col justify-between py-1">
-                <span className="text-[10px] text-zinc-500">20</span>
-                <span className="text-[10px] text-zinc-500">10</span>
-                <span className="text-[10px] text-zinc-500">1</span>
+              <div className="w-48">
+                <Slider
+                  min={1}
+                  max={20}
+                  step={1}
+                  value={[width]}
+                  onValueChange={(value) => setWidth(value[0])}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
         </div>
       )}
-      
-      <div className="h-px bg-border" />
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="text-destructive">
-            <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Clear canvas</span>
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove all drawings from the canvas. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onClear}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Clear
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </>
   )
 }
 
