@@ -133,6 +133,30 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         }
         break;
         
+      case "curved-arrow":
+        // For curved arrow, include the control point in the bounds calculation
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          const controlPoint = shape.controlPoint || {
+            x: (start.x + end.x) / 2,
+            y: (start.y + end.y) / 2 - 50
+          };
+          
+          x1 = Math.min(start.x, end.x, controlPoint.x);
+          y1 = Math.min(start.y, end.y, controlPoint.y);
+          x2 = Math.max(start.x, end.x, controlPoint.x);
+          y2 = Math.max(start.y, end.y, controlPoint.y);
+          
+          // Add some padding to make selection easier
+          const padding = 10;
+          x1 -= padding;
+          y1 -= padding;
+          x2 += padding;
+          y2 += padding;
+        }
+        break;
+        
       case "circle":
         // For circle, calculate bounds based on radius
         if (shape.points.length >= 2) {
@@ -234,7 +258,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   }, [])
 
   // Draw curved arrow
-  const drawCurvedArrow = useCallback((ctx: CanvasRenderingContext2D, from: Point, to: Point, controlPoint: Point, width: number) => {
+  const drawCurvedArrow = useCallback((ctx: CanvasRenderingContext2D, from: Point, to: Point, controlPoint: Point, width: number, isSelected: boolean) => {
     const headLength = 10 + width
     
     // Draw the curved path
@@ -256,22 +280,25 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     ctx.closePath()
     ctx.fill()
     
-    // Draw the control point when selected
-    ctx.save()
-    ctx.fillStyle = "#4285f4" // Google blue
-    ctx.beginPath()
-    ctx.arc(controlPoint.x, controlPoint.y, 5, 0, 2 * Math.PI)
-    ctx.fill()
-    
-    // Draw lines from control point to endpoints (only when selected)
-    ctx.setLineDash([3, 3])
-    ctx.beginPath()
-    ctx.moveTo(from.x, from.y)
-    ctx.lineTo(controlPoint.x, controlPoint.y)
-    ctx.lineTo(to.x, to.y)
-    ctx.stroke()
-    ctx.setLineDash([])
-    ctx.restore()
+    // Only show control point and guide lines when selected
+    if (isSelected) {
+      // Draw the control point
+      ctx.save()
+      ctx.fillStyle = "#4285f4" // Google blue
+      ctx.beginPath()
+      ctx.arc(controlPoint.x, controlPoint.y, 5, 0, 2 * Math.PI)
+      ctx.fill()
+      
+      // Draw lines from control point to endpoints
+      ctx.setLineDash([3, 3])
+      ctx.beginPath()
+      ctx.moveTo(from.x, from.y)
+      ctx.lineTo(controlPoint.x, controlPoint.y)
+      ctx.lineTo(to.x, to.y)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
+    }
   }, [])
 
   // Draw a single shape
@@ -343,37 +370,8 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
               y: (shape.points[0].y + shape.points[shape.points.length - 1].y) / 2 - 50 // Offset upward by default
             }
             
-            // Only show control point and guide lines when selected
-            if (shape.selected) {
-              drawCurvedArrow(ctx, shape.points[0], shape.points[shape.points.length - 1], controlPoint, shape.width)
-            } else {
-              // Just draw the curve without control point visualization
-              ctx.beginPath()
-              ctx.moveTo(shape.points[0].x, shape.points[0].y)
-              ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, 
-                shape.points[shape.points.length - 1].x, shape.points[shape.points.length - 1].y)
-              ctx.stroke()
-              
-              // Draw arrow head
-              const headLength = 10 + shape.width
-              const angle = Math.atan2(
-                shape.points[shape.points.length - 1].y - controlPoint.y, 
-                shape.points[shape.points.length - 1].x - controlPoint.x
-              )
-              
-              ctx.beginPath()
-              ctx.moveTo(shape.points[shape.points.length - 1].x, shape.points[shape.points.length - 1].y)
-              ctx.lineTo(
-                shape.points[shape.points.length - 1].x - headLength * Math.cos(angle - Math.PI / 6), 
-                shape.points[shape.points.length - 1].y - headLength * Math.sin(angle - Math.PI / 6)
-              )
-              ctx.lineTo(
-                shape.points[shape.points.length - 1].x - headLength * Math.cos(angle + Math.PI / 6), 
-                shape.points[shape.points.length - 1].y - headLength * Math.sin(angle + Math.PI / 6)
-              )
-              ctx.closePath()
-              ctx.fill()
-            }
+            // Draw the curved arrow
+            drawCurvedArrow(ctx, shape.points[0], shape.points[shape.points.length - 1], controlPoint, shape.width, !!shape.selected)
           }
           break
 
