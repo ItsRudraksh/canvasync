@@ -673,6 +673,8 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
             // Otherwise handle the endpoints
             const start = {...shape.points[0]};
             const end = {...shape.points[1]};
+            const oldStart = {...shape.points[0]};
+            const oldEnd = {...shape.points[1]};
             
             switch (handle) {
               case "tl":
@@ -695,6 +697,43 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
             
             newPoints[0] = start;
             newPoints[1] = end;
+            
+            // Adjust control point proportionally
+            if (shape.controlPoint) {
+              // Calculate how much each endpoint moved
+              const startDx = start.x - oldStart.x;
+              const startDy = start.y - oldStart.y;
+              const endDx = end.x - oldEnd.x;
+              const endDy = end.y - oldEnd.y;
+              
+              // Calculate the relative position of the control point between the endpoints
+              const oldMidX = (oldStart.x + oldEnd.x) / 2;
+              const oldMidY = (oldStart.y + oldEnd.y) / 2;
+              
+              // Calculate how far the control point is from the midpoint (as a percentage)
+              const oldDiffX = shape.controlPoint.x - oldMidX;
+              const oldDiffY = shape.controlPoint.y - oldMidY;
+              
+              // Calculate the new midpoint
+              const newMidX = (start.x + end.x) / 2;
+              const newMidY = (start.y + end.y) / 2;
+              
+              // Apply the same percentage offset to the new midpoint
+              return {
+                ...shape,
+                points: newPoints,
+                controlPoint: {
+                  x: newMidX + oldDiffX + (startDx + endDx) / 2,
+                  y: newMidY + oldDiffY + (startDy + endDy) / 2
+                }
+              };
+            }
+            
+            // Return shape with updated points if there's no control point
+            return {
+              ...shape,
+              points: newPoints
+            };
           }
         }
         break;
@@ -1800,6 +1839,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
               y: point.y + dy
             }));
             
+            // If it's a curved arrow, also update the control point
+            if (shape.tool === "curved-arrow" && shape.controlPoint) {
+              return {
+                ...shape,
+                points: newPoints,
+                controlPoint: {
+                  x: shape.controlPoint.x + dx,
+                  y: shape.controlPoint.y + dy
+                }
+              };
+            }
+            
             return {
               ...shape,
               points: newPoints
@@ -1852,6 +1903,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
               x: point.x + dx,
               y: point.y + dy
             }));
+            
+            // If it's a curved arrow, also update the control point
+            if (shape.tool === "curved-arrow" && shape.controlPoint) {
+              return {
+                ...shape,
+                points: newPoints,
+                controlPoint: {
+                  x: shape.controlPoint.x + dx,
+                  y: shape.controlPoint.y + dy
+                }
+              };
+            }
             
             return {
               ...shape,
@@ -1925,6 +1988,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
         if (updatedSelectedShape) {
           setSelectedShape(updatedSelectedShape);
+          
           
           // Emit socket event for shape update
           socket?.emit("shape-update", {
