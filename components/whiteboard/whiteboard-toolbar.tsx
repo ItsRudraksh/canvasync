@@ -95,7 +95,7 @@ export function WhiteboardToolbar({
         ))}
       </div>
       <div className="h-px bg-border" />
-      <div className="px-2 py-1">
+      <div className="px-2 py-1 bg-red-300">
         <Slider
           min={1}
           max={20}

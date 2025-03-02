@@ -50,6 +50,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null)
+  const [dragStartPoint, setDragStartPoint] = useState<Point | null>(null)
   const [currentShape, setCurrentShape] = useState<Shape | null>(null)
   const [shapes, setShapes] = useState<Shape[]>([])
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null)
@@ -165,12 +168,38 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       if (shape.selected) {
         ctx.strokeStyle = "#00ff00"
         ctx.setLineDash([5, 5])
+        
+        // Get shape bounds
+        const bounds = getShapeBounds(shape);
+        
+        // Draw selection rectangle
         ctx.strokeRect(
-          shape.points[0].x - 5,
-          shape.points[0].y - 5,
-          (shape.points[1]?.x || 0) - shape.points[0].x + 10,
-          (shape.points[1]?.y || 0) - shape.points[0].y + 10,
+          bounds.x1 - 5,
+          bounds.y1 - 5,
+          bounds.x2 - bounds.x1 + 10,
+          bounds.y2 - bounds.y1 + 10
         )
+        
+        // Draw resize handles if shape is selected
+        if (shape.selected) {
+          ctx.fillStyle = "#00ff00";
+          
+          // Draw resize handles at corners
+          const handleSize = 8;
+          
+          // Top-left
+          ctx.fillRect(bounds.x1 - handleSize/2, bounds.y1 - handleSize/2, handleSize, handleSize);
+          
+          // Top-right
+          ctx.fillRect(bounds.x2 - handleSize/2, bounds.y1 - handleSize/2, handleSize, handleSize);
+          
+          // Bottom-left
+          ctx.fillRect(bounds.x1 - handleSize/2, bounds.y2 - handleSize/2, handleSize, handleSize);
+          
+          // Bottom-right
+          ctx.fillRect(bounds.x2 - handleSize/2, bounds.y2 - handleSize/2, handleSize, handleSize);
+        }
+        
         ctx.setLineDash([])
       }
 
@@ -178,6 +207,164 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     },
     [getContext, drawArrow],
   )
+
+  // Helper function to get shape bounds
+  const getShapeBounds = useCallback((shape: Shape) => {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    
+    // Calculate bounds based on shape type
+    switch (shape.tool) {
+      case "pen":
+      case "eraser":
+        // For pen and eraser, find min/max of all points
+        shape.points.forEach(point => {
+          x1 = Math.min(x1, point.x);
+          y1 = Math.min(y1, point.y);
+          x2 = Math.max(x2, point.x);
+          y2 = Math.max(y2, point.y);
+        });
+        break;
+        
+      case "rectangle":
+      case "arrow":
+        // For rectangle and arrow, use first and last point
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          x1 = Math.min(start.x, end.x);
+          y1 = Math.min(start.y, end.y);
+          x2 = Math.max(start.x, end.x);
+          y2 = Math.max(start.y, end.y);
+        }
+        break;
+        
+      case "circle":
+        // For circle, calculate bounds based on radius
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+          x1 = start.x - radius;
+          y1 = start.y - radius;
+          x2 = start.x + radius;
+          y2 = start.y + radius;
+        }
+        break;
+    }
+    
+    return { x1, y1, x2, y2 };
+  }, []);
+
+  // Helper function to check if a point is near a resize handle
+  const getResizeHandle = useCallback((shape: Shape, x: number, y: number) => {
+    if (!shape.selected) return null;
+    
+    const bounds = getShapeBounds(shape);
+    const handleSize = 8;
+    
+    // Check each handle
+    // Top-left
+    if (Math.abs(x - bounds.x1) <= handleSize && Math.abs(y - bounds.y1) <= handleSize) {
+      return "tl";
+    }
+    
+    // Top-right
+    if (Math.abs(x - bounds.x2) <= handleSize && Math.abs(y - bounds.y1) <= handleSize) {
+      return "tr";
+    }
+    
+    // Bottom-left
+    if (Math.abs(x - bounds.x1) <= handleSize && Math.abs(y - bounds.y2) <= handleSize) {
+      return "bl";
+    }
+    
+    // Bottom-right
+    if (Math.abs(x - bounds.x2) <= handleSize && Math.abs(y - bounds.y2) <= handleSize) {
+      return "br";
+    }
+    
+    return null;
+  }, [getShapeBounds]);
+
+  // Helper function to resize a shape
+  const resizeShape = useCallback((shape: Shape, handle: string, dx: number, dy: number) => {
+    const newPoints = [...shape.points];
+    
+    switch (shape.tool) {
+      case "rectangle":
+      case "arrow":
+        if (shape.points.length >= 2) {
+          const start = {...shape.points[0]};
+          const end = {...shape.points[1]};
+          
+          switch (handle) {
+            case "tl":
+              start.x += dx;
+              start.y += dy;
+              break;
+            case "tr":
+              end.x += dx;
+              start.y += dy;
+              break;
+            case "bl":
+              start.x += dx;
+              end.y += dy;
+              break;
+            case "br":
+              end.x += dx;
+              end.y += dy;
+              break;
+          }
+          
+          newPoints[0] = start;
+          newPoints[1] = end;
+        }
+        break;
+        
+      case "circle":
+        if (shape.points.length >= 2) {
+          const center = shape.points[0];
+          const edge = {...shape.points[1]};
+          
+          // For circle, adjust the radius point based on the handle
+          const currentRadius = Math.sqrt(Math.pow(edge.x - center.x, 2) + Math.pow(edge.y - center.y, 2));
+          const angle = Math.atan2(edge.y - center.y, edge.x - center.x);
+          
+          // Calculate new radius based on the handle and movement
+          let newRadius = currentRadius;
+          
+          switch (handle) {
+            case "tl":
+            case "tr":
+            case "bl":
+            case "br":
+              // Adjust radius based on the distance change
+              const distChange = Math.sqrt(dx * dx + dy * dy);
+              if ((dx < 0 || dy < 0) && distChange > 0) {
+                newRadius -= distChange / 2;
+              } else {
+                newRadius += distChange / 2;
+              }
+              break;
+          }
+          
+          // Ensure minimum radius
+          newRadius = Math.max(5, newRadius);
+          
+          // Update the edge point
+          edge.x = center.x + newRadius * Math.cos(angle);
+          edge.y = center.y + newRadius * Math.sin(angle);
+          
+          newPoints[1] = edge;
+        }
+        break;
+    }
+    
+    return {
+      ...shape,
+      points: newPoints
+    };
+  }, []);
 
   // Redraw entire canvas
   const redrawCanvas = useCallback(() => {
@@ -222,7 +409,26 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     if (isDragging) {
       setIsDragging(false)
       setStartPanPoint(null)
+      
+      // If we were dragging a selected shape, save the state
+      if (selectedShape && dragStartPoint) {
+        saveCanvasState(shapes);
+      }
+      
+      setDragStartPoint(null);
       return
+    }
+    
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeHandle(null);
+      
+      // Save state after resizing
+      if (selectedShape) {
+        saveCanvasState(shapes);
+      }
+      
+      return;
     }
 
     if (!isDrawing || !currentShape) return
@@ -240,7 +446,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
     // Save canvas state to database
     saveCanvasState(updatedShapes);
-  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState]);
+  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing]);
 
   // Clear canvas
   const clearCanvas = useCallback(() => {
@@ -273,17 +479,25 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
 
       if (tool === "select") {
-        const clickedShape = shapes.findLast((shape) => {
-          const bounds = {
-            x1: shape.points[0].x,
-            y1: shape.points[0].y,
-            x2: shape.points[1]?.x || shape.points[0].x,
-            y2: shape.points[1]?.y || shape.points[0].y,
+        // First check if we're clicking on a resize handle of the selected shape
+        if (selectedShape) {
+          const handle = getResizeHandle(selectedShape, x, y);
+          if (handle) {
+            setIsResizing(true);
+            setResizeHandle(handle);
+            setDragStartPoint({ x, y });
+            return;
           }
-          return x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2
-        })
+        }
+        
+        // Check if we're clicking on a shape
+        const clickedShape = shapes.findLast((shape) => {
+          const bounds = getShapeBounds(shape);
+          return x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2;
+        });
 
         if (clickedShape) {
+          // Set the shape as selected
           setSelectedShape(clickedShape)
           setShapes(
             shapes.map((s) => ({
@@ -291,9 +505,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
               selected: s.id === clickedShape.id,
             })),
           )
+          
+          // Start dragging the selected shape
+          setIsDragging(true);
+          setDragStartPoint({ x, y });
           return
         }
 
+        // If we didn't click on a shape, deselect all
         setSelectedShape(null)
         setShapes(shapes.map((s) => ({ ...s, selected: false })))
         return
@@ -317,7 +536,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, isReadOnly, socket, shapes, panOffset],
+    [id, instanceId, tool, color, width, isReadOnly, socket, shapes, panOffset, selectedShape, getResizeHandle, getShapeBounds],
   )
 
   const handlePointerMove = useCallback(
@@ -340,7 +559,8 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         })
       }
 
-      if (isDragging && startPanPoint) {
+      // Handle panning with hand tool
+      if (isDragging && startPanPoint && tool === "hand") {
         const dx = e.clientX - startPanPoint.x
         const dy = e.clientY - startPanPoint.y
         setPanOffset((prev) => ({
@@ -349,6 +569,73 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         }))
         setStartPanPoint({ x: e.clientX, y: e.clientY })
         return
+      }
+      
+      // Handle dragging selected shape
+      if (isDragging && dragStartPoint && selectedShape && tool === "select") {
+        const dx = x - dragStartPoint.x;
+        const dy = y - dragStartPoint.y;
+        
+        // Update the shape's points
+        const updatedShapes = shapes.map(shape => {
+          if (shape.id === selectedShape.id) {
+            // Create new points array with updated positions
+            const newPoints = shape.points.map(point => ({
+              x: point.x + dx,
+              y: point.y + dy
+            }));
+            
+            return {
+              ...shape,
+              points: newPoints
+            };
+          }
+          return shape;
+        });
+        
+        setShapes(updatedShapes);
+        
+        // Update the selected shape
+        const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+        if (updatedSelectedShape) {
+          setSelectedShape(updatedSelectedShape);
+        }
+        
+        // Update drag start point
+        setDragStartPoint({ x, y });
+        return;
+      }
+      
+      // Handle resizing selected shape
+      if (isResizing && resizeHandle && selectedShape) {
+        // Initialize dragStartPoint if it's null
+        if (!dragStartPoint) {
+          setDragStartPoint({ x, y });
+          return;
+        }
+        
+        const dx = x - dragStartPoint.x;
+        const dy = y - dragStartPoint.y;
+        
+        // Resize the shape
+        const updatedShapes = shapes.map(shape => {
+          if (shape.id === selectedShape.id) {
+            return resizeShape(shape, resizeHandle, dx, dy);
+          }
+          return shape;
+        });
+        
+        setShapes(updatedShapes);
+        
+        // Update the selected shape
+        const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+        if (updatedSelectedShape) {
+          setSelectedShape(updatedSelectedShape);
+        }
+        
+        // Update drag start point
+        setDragStartPoint({ x, y });
+        return;
       }
 
       if (!isDrawing || !currentShape) return
@@ -376,7 +663,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool],
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape],
   )
 
   // Handle window resize
@@ -530,7 +817,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           "h-full w-full touch-none",
           isReadOnly && "cursor-not-allowed",
           tool === "hand" && "cursor-grab",
-          isDragging && "cursor-grabbing",
+          isDragging && tool === "hand" && "cursor-grabbing",
+          tool === "select" && "cursor-pointer",
+          isResizing && "cursor-nwse-resize"
         )}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
