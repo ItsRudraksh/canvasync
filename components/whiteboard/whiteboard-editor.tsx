@@ -10,6 +10,8 @@ import { WhiteboardToolbar } from "./whiteboard-toolbar"
 import { UserCursor } from "./user-cursor"
 import { cn } from "@/lib/utils"
 import axios from "axios"
+import { Textarea } from "@/components/ui/textarea"
+import { ResizableHandle, ResizablePanel } from "@/components/ui/resizable"
 
 interface Point {
   x: number
@@ -29,6 +31,11 @@ interface Shape {
     scale: number
     rotate: number
   }
+  text?: string
+  isEditing?: boolean
+  fontSize?: number
+  textWidth?: number
+  textHeight?: number
 }
 
 interface WhiteboardEditorProps {
@@ -70,6 +77,11 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [activeTextEditor, setActiveTextEditor] = useState<Shape | null>(null)
+  const textEditorRef = useRef<HTMLTextAreaElement>(null)
+  const textEditorContainerRef = useRef<HTMLDivElement>(null)
+  const [textEditorSize, setTextEditorSize] = useState({ width: 200, height: 100 })
+  const [isResizingTextEditor, setIsResizingTextEditor] = useState(false)
 
   // Initialize canvas context
   const getContext = useCallback(() => {
@@ -179,6 +191,64 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
             ctx.stroke();
           }
           break
+        
+        case "text":
+          if (shape.points.length > 0 && shape.text) {
+            const point = shape.points[0];
+            const fontSize = shape.fontSize || shape.width * 10;
+            
+            // Use a handwriting-like font
+            ctx.font = `${fontSize}px 'Segoe Print', 'Comic Sans MS', cursive`;
+            ctx.textBaseline = "top";
+            
+            // If the shape is being edited, don't render it (the textarea will show instead)
+            if (shape.isEditing) {
+              return;
+            }
+            
+            // Always split by newlines first to preserve explicit line breaks
+            const lines = shape.text.split('\n');
+            let y = point.y;
+            
+            lines.forEach(line => {
+              // For each explicit line, also handle word wrapping if needed
+              if (shape.textWidth) {
+                const words = line.split(' ');
+                let currentLine = '';
+                
+                // Handle empty lines (just a newline character)
+                if (line.trim() === '') {
+                  y += fontSize * 1.2; // Add line height for empty lines
+                  return;
+                }
+                
+                for (let i = 0; i < words.length; i++) {
+                  const testLine = currentLine + words[i] + ' ';
+                  const metrics = ctx.measureText(testLine);
+                  const testWidth = metrics.width;
+                  
+                  if (testWidth > shape.textWidth && i > 0) {
+                    ctx.fillText(currentLine, point.x, y);
+                    currentLine = words[i] + ' ';
+                    y += fontSize * 1.2; // Line height
+                  } else {
+                    currentLine = testLine;
+                  }
+                }
+                
+                // Draw the last line of this paragraph
+                if (currentLine.trim() !== '') {
+                  ctx.fillText(currentLine, point.x, y);
+                  y += fontSize * 1.2; // Line height
+                }
+              } else {
+                // No width constraint, just draw the line
+                ctx.fillText(line, point.x, y);
+                y += fontSize * 1.2; // Line height
+              }
+            });
+          }
+          break
       }
 
       if (shape.selected) {
@@ -266,10 +336,88 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           y2 = start.y + radius;
         }
         break;
+        
+      case "text":
+        // For text, calculate bounds based on text content
+        if (shape.points.length > 0 && shape.text) {
+          const point = shape.points[0];
+          const ctx = getContext();
+          if (ctx) {
+            const fontSize = shape.fontSize || shape.width * 10;
+            ctx.font = `${fontSize}px 'Segoe Print', 'Comic Sans MS', cursive`;
+            
+            if (shape.textWidth) {
+              // If text has a defined width (for wrapping), use that
+              x1 = point.x;
+              y1 = point.y;
+              x2 = point.x + shape.textWidth;
+              
+              // Calculate height based on text wrapping and line breaks
+              const lines = shape.text.split('\n');
+              let lineCount = 0;
+              
+              lines.forEach(line => {
+                // Count empty lines
+                if (line.trim() === '') {
+                  lineCount++;
+                  return;
+                }
+                
+                // Count wrapped lines
+                const words = line.split(' ');
+                let currentLine = '';
+                
+                for (let i = 0; i < words.length; i++) {
+                  const testLine = currentLine + words[i] + ' ';
+                  const metrics = ctx.measureText(testLine);
+                  const testWidth = metrics.width;
+                  
+                  if (testWidth > shape.textWidth && i > 0) {
+                    currentLine = words[i] + ' ';
+                    lineCount++;
+                  } else {
+                    currentLine = testLine;
+                  }
+                }
+                
+                // Count the last line of each paragraph
+                if (currentLine.trim() !== '') {
+                  lineCount++;
+                }
+              });
+              
+              // Ensure at least one line
+              lineCount = Math.max(1, lineCount);
+              y2 = point.y + lineCount * fontSize * 1.2;
+            } else {
+              // Simple text without wrapping, but still respect line breaks
+              const lines = shape.text.split('\n');
+              x1 = point.x;
+              y1 = point.y;
+              
+              // Find the widest line
+              let maxWidth = 0;
+              lines.forEach(line => {
+                const metrics = ctx.measureText(line);
+                maxWidth = Math.max(maxWidth, metrics.width);
+              });
+              
+              x2 = point.x + maxWidth;
+              y2 = point.y + lines.length * fontSize * 1.2;
+            }
+          } else {
+            // Fallback if context is not available
+            x1 = point.x;
+            y1 = point.y;
+            x2 = point.x + 100; // Arbitrary width
+            y2 = point.y + 20;  // Arbitrary height
+          }
+        }
+        break;
     }
     
     return { x1, y1, x2, y2 };
-  }, []);
+  }, [getContext]);
 
   // Helper function to check if a point is near a resize handle
   const getResizeHandle = useCallback((shape: Shape, x: number, y: number) => {
@@ -705,9 +853,245 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     addToHistory([]);
   }, [id, instanceId, socket, saveCanvasState, shapes, addToHistory]);
 
+  // Handle text editor changes
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!activeTextEditor) return;
+    
+    const updatedShapes = shapes.map(shape => {
+      if (shape.id === activeTextEditor.id) {
+        return {
+          ...shape,
+          text: e.target.value,
+          textWidth: textEditorSize.width,
+          textHeight: textEditorSize.height
+        };
+      }
+      return shape;
+    });
+    
+    setShapes(updatedShapes);
+    setActiveTextEditor({
+      ...activeTextEditor,
+      text: e.target.value,
+      textWidth: textEditorSize.width,
+      textHeight: textEditorSize.height
+    });
+    
+    // Real-time sync of text changes
+    socket?.emit("shape-update", {
+      whiteboardId: id,
+      instanceId,
+      shape: {
+        ...activeTextEditor,
+        text: e.target.value,
+        textWidth: textEditorSize.width,
+        textHeight: textEditorSize.height
+      },
+      shapes: updatedShapes
+    });
+  }, [activeTextEditor, id, instanceId, shapes, socket, textEditorSize]);
+
+  // Handle text editor resize
+  const handleTextEditorResize = useCallback((width: number, height: number) => {
+    if (!activeTextEditor) return;
+    
+    setTextEditorSize({ width, height });
+    
+    const updatedShapes = shapes.map(shape => {
+      if (shape.id === activeTextEditor.id) {
+        return {
+          ...shape,
+          textWidth: width,
+          textHeight: height
+        };
+      }
+      return shape;
+    });
+    
+    setShapes(updatedShapes);
+    setActiveTextEditor({
+      ...activeTextEditor,
+      textWidth: width,
+      textHeight: height
+    });
+    
+    // Real-time sync of text changes
+    socket?.emit("shape-update", {
+      whiteboardId: id,
+      instanceId,
+      shape: {
+        ...activeTextEditor,
+        textWidth: width,
+        textHeight: height
+      },
+      shapes: updatedShapes
+    });
+  }, [activeTextEditor, id, instanceId, shapes, socket]);
+
+  // Handle text editor blur (finish editing)
+  const handleTextBlur = useCallback(() => {
+    if (!activeTextEditor || isResizingTextEditor) return;
+    
+    // Only save if there's actual text content
+    if (activeTextEditor.text && activeTextEditor.text.trim() !== "") {
+      const updatedShapes = shapes.map(shape => {
+        if (shape.id === activeTextEditor.id) {
+          return {
+            ...shape,
+            isEditing: false,
+            textWidth: textEditorSize.width,
+            textHeight: textEditorSize.height
+          };
+        }
+        return shape;
+      });
+      
+      setShapes(updatedShapes);
+      
+      // Emit socket event for shape update
+      socket?.emit("shape-update-end", {
+        whiteboardId: id,
+        instanceId,
+        shapes: updatedShapes
+      });
+      
+      // Save canvas state
+      saveCanvasState(updatedShapes);
+      
+      // Add to history
+      addToHistory(updatedShapes);
+    } else {
+      // Remove empty text shapes
+      const updatedShapes = shapes.filter(shape => 
+        shape.id !== activeTextEditor.id
+      );
+      
+      setShapes(updatedShapes);
+      
+      // Emit socket event for shape update
+      socket?.emit("shape-update-end", {
+        whiteboardId: id,
+        instanceId,
+        shapes: updatedShapes
+      });
+      
+      // Save canvas state
+      saveCanvasState(updatedShapes);
+      
+      // Add to history
+      addToHistory(updatedShapes);
+    }
+    
+    setActiveTextEditor(null);
+  }, [activeTextEditor, addToHistory, id, instanceId, saveCanvasState, shapes, socket, textEditorSize, isResizingTextEditor]);
+
+  // Handle double click event
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (isReadOnly) return;
+      
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left - panOffset.x;
+      const y = e.clientY - rect.top - panOffset.y;
+      
+      // Check if double-clicked on an existing text shape
+      const clickedShape = shapes.find(shape => {
+        if (shape.tool === "text" && shape.points.length > 0) {
+          const bounds = getShapeBounds(shape);
+          return (
+            x >= bounds.x1 &&
+            x <= bounds.x2 &&
+            y >= bounds.y1 &&
+            y <= bounds.y2
+          );
+        }
+        return false;
+      });
+      
+      if (clickedShape) {
+        // Edit existing text directly on canvas
+        const updatedShapes = shapes.map(shape => {
+          if (shape.id === clickedShape.id) {
+            return {
+              ...shape,
+              isEditing: true,
+              selected: true
+            };
+          }
+          return {
+            ...shape,
+            isEditing: false,
+            selected: shape.id === clickedShape.id
+          };
+        });
+        
+        setShapes(updatedShapes);
+        
+        // Set text editor size based on shape's textWidth and textHeight
+        if (clickedShape.textWidth && clickedShape.textHeight) {
+          setTextEditorSize({
+            width: clickedShape.textWidth,
+            height: clickedShape.textHeight
+          });
+        } else {
+          // Default size if not set
+          setTextEditorSize({ width: 300, height: 150 });
+        }
+        
+        setActiveTextEditor(clickedShape);
+        
+        // Focus the text editor in the next render cycle
+        setTimeout(() => {
+          if (textEditorRef.current) {
+            textEditorRef.current.focus();
+          }
+        }, 0);
+      } else {
+        // Create new text box directly on canvas
+        const fontSize = width * 10; // Larger font size (increased from 5 to 10)
+        const newShape: Shape = {
+          id: nanoid(),
+          tool: "text",
+          points: [{ x, y }],
+          color,
+          width,
+          fontSize,
+          text: "",
+          isEditing: true,
+          selected: true,
+          textWidth: 300,
+          textHeight: 150
+        };
+        
+        const updatedShapes = shapes.map(s => ({
+          ...s,
+          selected: false,
+          isEditing: false
+        }));
+        
+        setShapes([...updatedShapes, newShape]);
+        setTextEditorSize({ width: 300, height: 150 });
+        setActiveTextEditor(newShape);
+        
+        // Focus the text editor in the next render cycle
+        setTimeout(() => {
+          if (textEditorRef.current) {
+            textEditorRef.current.focus();
+          }
+        }, 0);
+      }
+    },
+    [getShapeBounds, isReadOnly, panOffset, shapes, color, width]
+  );
+
   // Handle pointer down event
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isReadOnly || !currentUser) return
+
       const canvas = canvasRef.current
       if (!canvas) return
 
@@ -715,17 +1099,51 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       const x = e.clientX - rect.left - panOffset.x
       const y = e.clientY - rect.top - panOffset.y
 
-      // Update cursor position
-      if (!isReadOnly && currentUser) {
-        socket?.emit("cursor-move", {
-          whiteboardId: id,
-          instanceId,
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-          user: currentUser,
-        })
+      // If text tool is selected, create a text box
+      if (tool === "text") {
+        const fontSize = width * 10; // Larger font size (increased from 5 to 10)
+        const newShape: Shape = {
+          id: nanoid(),
+          tool: "text",
+          points: [{ x, y }],
+          color,
+          width,
+          fontSize,
+          text: "",
+          isEditing: true,
+          selected: true,
+          textWidth: 300,
+          textHeight: 150
+        };
+        
+        const updatedShapes = shapes.map(s => ({
+          ...s,
+          selected: false,
+          isEditing: false
+        }));
+        
+        setShapes([...updatedShapes, newShape]);
+        setTextEditorSize({ width: 300, height: 150 });
+        setActiveTextEditor(newShape);
+        
+        // Focus the text editor in the next render cycle
+        setTimeout(() => {
+          if (textEditorRef.current) {
+            textEditorRef.current.focus();
+          }
+        }, 0);
+        
+        return;
       }
-
+      
+      // If we have an active text editor, finish editing when clicking elsewhere
+      if (activeTextEditor && !isResizingTextEditor) {
+        // Use a small timeout to ensure the click event doesn't immediately trigger blur and then another action
+        setTimeout(() => {
+          handleTextBlur();
+        }, 10);
+      }
+      
       // Check if we're clicking on a resize handle of a selected shape
       if (selectedShape) {
         const handle = getResizeHandle(selectedShape, x, y);
@@ -762,6 +1180,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           
           setShapes(updatedShapes);
           
+          // Emit socket event to notify other users about selection
+          socket?.emit("shape-update", {
+            whiteboardId: id,
+            instanceId,
+            shape: clickedShape,
+            shapes: updatedShapes
+          });
+          
           // Start dragging the shape
           setIsDragging(true);
           setDragStartPoint({ x, y });
@@ -769,7 +1195,16 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         } else {
           // Deselect if clicking on empty space
           setSelectedShape(null);
-          setShapes(shapes.map(s => ({ ...s, selected: false })));
+          const updatedShapes = shapes.map(s => ({ ...s, selected: false }));
+          setShapes(updatedShapes);
+          
+          // Emit socket event to notify other users about deselection
+          socket?.emit("shape-update", {
+            whiteboardId: id,
+            instanceId,
+            shape: null,
+            shapes: updatedShapes
+          });
         }
       }
 
@@ -829,7 +1264,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove],
+    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor]
   )
 
   const handlePointerMove = useCallback(
@@ -990,7 +1425,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove],
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor]
   )
 
   // Handle window resize
@@ -1021,7 +1456,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       user: currentUser,
     })
 
-    socket.on("draw-started", ({ instanceId: remoteId, shape }) => {
+    socket.on("draw-started", ({ instanceId: remoteId, shape }: { instanceId: string, shape: Shape }) => {
       if (remoteId !== instanceId) {
         console.log("Remote draw started:", shape);
         // For remote drawing, we need to add the shape to our temporary drawing state
@@ -1030,7 +1465,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
-    socket.on("draw-progressed", ({ instanceId: remoteId, shape }) => {
+    socket.on("draw-progressed", ({ instanceId: remoteId, shape }: { instanceId: string, shape: Shape }) => {
       if (remoteId !== instanceId) {
         console.log("Remote draw progressed:", shape);
         // Update the current shape for remote drawing
@@ -1040,10 +1475,16 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
-    socket.on("draw-ended", ({ instanceId: remoteId, shape }) => {
+    socket.on("draw-ended", ({ instanceId: remoteId, shape }: { instanceId: string, shape: Shape }) => {
       if (remoteId !== instanceId) {
         console.log("Remote draw ended:", shape);
         setCurrentShape(null);
+        
+        // Handle text shapes specially to ensure text property is preserved
+        if (shape.tool === "text") {
+          console.log("Remote text shape created:", shape.text);
+        }
+        
         setShapes((prev) => {
           const updatedShapes = [...prev, shape];
           // Save canvas state when receiving remote updates
@@ -1057,21 +1498,52 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
     
-    socket.on("shape-updated", ({ instanceId: remoteId, shape, shapes: remoteShapes }) => {
+    socket.on("shape-updated", ({ instanceId: remoteId, shape, shapes: remoteShapes }: { instanceId: string, shape: Shape | null, shapes: Shape[] }) => {
       if (remoteId !== instanceId) {
         console.log("Remote shape updated:", shape);
+        
+        // Handle text shapes specially to ensure text property is preserved
+        if (shape && shape.tool === "text") {
+          console.log("Remote text shape updated:", shape.text);
+        }
+        
         // Update shapes with the remote shapes
         setShapes(remoteShapes);
+        
+        // Update selected shape if it's the same as the remote shape
+        if (selectedShape && shape && selectedShape.id === shape.id) {
+          setSelectedShape(shape);
+        } else if (!shape) {
+          // If shape is null, it means deselection
+          setSelectedShape(null);
+        }
+        
         // Force redraw
         redrawCanvas();
       }
     })
     
-    socket.on("shape-update-ended", ({ instanceId: remoteId, shapes: remoteShapes }) => {
+    socket.on("shape-update-ended", ({ instanceId: remoteId, shapes: remoteShapes }: { instanceId: string, shapes: Shape[] }) => {
       if (remoteId !== instanceId) {
         console.log("Remote shape update ended");
+        
+        // Check if any text shapes were updated
+        const textShapes = remoteShapes.filter(shape => shape.tool === "text");
+        if (textShapes.length > 0) {
+          console.log("Remote text shapes updated:", textShapes.length);
+        }
+        
         // Update shapes with the final remote shapes
         setShapes(remoteShapes);
+        
+        // Check if our selected shape is still selected in remote shapes
+        if (selectedShape) {
+          const remoteSelectedShape = remoteShapes.find(s => s.id === selectedShape.id && s.selected);
+          if (!remoteSelectedShape) {
+            // If our selected shape is no longer selected in remote shapes, deselect it
+            setSelectedShape(null);
+          }
+        }
         
         // Add to history
         addToHistory(remoteShapes);
@@ -1081,7 +1553,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
-    socket.on("eraser-highlighted", ({ instanceId: remoteId, shapesToErase: remoteShapesToErase }) => {
+    socket.on("eraser-highlighted", ({ instanceId: remoteId, shapesToErase: remoteShapesToErase }: { instanceId: string, shapesToErase: string[] }) => {
       if (remoteId !== instanceId) {
         console.log("Remote eraser highlight:", remoteShapesToErase.length, "shapes");
         // Update shapes to erase with the remote shapes to erase
@@ -1091,7 +1563,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
-    socket.on("undo-redo-update", ({ instanceId: remoteId, shapes: remoteShapes }) => {
+    socket.on("undo-redo-update", ({ instanceId: remoteId, shapes: remoteShapes }: { instanceId: string, shapes: Shape[] }) => {
       if (remoteId !== instanceId) {
         console.log("Remote undo/redo update received");
         // Update shapes with the remote shapes
@@ -1118,7 +1590,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
-    socket.on("canvas-cleared", ({ instanceId: remoteId }) => {
+    socket.on("canvas-cleared", ({ instanceId: remoteId }: { instanceId: string }) => {
       if (remoteId !== instanceId) {
         console.log("Remote canvas cleared");
         setShapes([]);
@@ -1212,7 +1684,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   }, [initialData]);
 
   return (
-    <div className="relative h-full w-full bg-[#1a1a1a]">
+    <div className="relative h-full w-full overflow-hidden bg-zinc-900">
       <WhiteboardToolbar
         tool={tool}
         setTool={setTool}
@@ -1238,7 +1710,15 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
               onClick={() => {
                 // Deselect the shape
                 setSelectedShape(null);
-                setShapes(shapes.map(s => ({ ...s, selected: false })));
+                const updatedShapes = shapes.map(s => ({ ...s, selected: false }));
+                setShapes(updatedShapes);
+                
+                // Emit socket event to notify other users about deselection
+                socket?.emit("shape-update-end", {
+                  whiteboardId: id,
+                  instanceId,
+                  shapes: updatedShapes
+                });
               }}
             >
               ✕
@@ -1316,7 +1796,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
                     if (shape.id === selectedShape.id) {
                       return {
                         ...shape,
-                        width: newWidth
+                        width: newWidth,
+                        // Update fontSize for text shapes when width changes
+                        ...(shape.tool === "text" ? { fontSize: newWidth * 10 } : {})
                       };
                     }
                     return shape;
@@ -1365,6 +1847,155 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
             </div>
           </div>
           
+          {/* Font size control for text shapes */}
+          {selectedShape.tool === "text" && (
+            <div className="mb-2">
+              <label className="text-xs text-zinc-400 mb-1 block">Font Size: {selectedShape.fontSize || selectedShape.width * 10}px</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={selectedShape.fontSize || selectedShape.width * 10}
+                  onChange={(e) => {
+                    const newFontSize = parseInt(e.target.value);
+                    
+                    // Update the selected shape's font size
+                    const updatedShapes = shapes.map(shape => {
+                      if (shape.id === selectedShape.id) {
+                        return {
+                          ...shape,
+                          fontSize: newFontSize
+                        };
+                      }
+                      return shape;
+                    });
+                    
+                    setShapes(updatedShapes);
+                    
+                    // Update the selected shape
+                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                    if (updatedSelectedShape) {
+                      setSelectedShape(updatedSelectedShape);
+                      
+                      // Emit socket event for shape update
+                      socket?.emit("shape-update", {
+                        whiteboardId: id,
+                        instanceId,
+                        shape: updatedSelectedShape,
+                        shapes: updatedShapes
+                      });
+                      
+                      // Save canvas state
+                      saveCanvasState(updatedShapes);
+                    }
+                  }}
+                  className="w-full accent-blue-500"
+                />
+                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded">
+                  {selectedShape.fontSize || selectedShape.width * 10}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Edit text button for text shapes */}
+          {selectedShape.tool === "text" && (
+            <button
+              className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+              onClick={() => {
+                // Set the shape to editing mode
+                const updatedShapes = shapes.map(shape => {
+                  if (shape.id === selectedShape.id) {
+                    return {
+                      ...shape,
+                      isEditing: true
+                    };
+                  }
+                  return {
+                    ...shape,
+                    isEditing: false
+                  };
+                });
+                
+                setShapes(updatedShapes);
+                
+                // Set active text editor
+                setActiveTextEditor(selectedShape);
+                
+                // Set text editor size based on shape's textWidth and textHeight
+                if (selectedShape.textWidth && selectedShape.textHeight) {
+                  setTextEditorSize({
+                    width: selectedShape.textWidth,
+                    height: selectedShape.textHeight
+                  });
+                } else {
+                  // Default size if not set
+                  setTextEditorSize({ width: 300, height: 150 });
+                }
+                
+                // Focus the text editor in the next render cycle
+                setTimeout(() => {
+                  if (textEditorRef.current) {
+                    textEditorRef.current.focus();
+                  }
+                }, 0);
+              }}
+            >
+              Edit Text
+            </button>
+          )}
+          
+          {/* Resize button for text shapes */}
+          {selectedShape.tool === "text" && (
+            <button
+              className="mt-1 bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+              onClick={() => {
+                // Set the shape to editing mode with resize focus
+                const updatedShapes = shapes.map(shape => {
+                  if (shape.id === selectedShape.id) {
+                    return {
+                      ...shape,
+                      isEditing: true
+                    };
+                  }
+                  return {
+                    ...shape,
+                    isEditing: false
+                  };
+                });
+                
+                setShapes(updatedShapes);
+                
+                // Set active text editor
+                setActiveTextEditor(selectedShape);
+                
+                // Set text editor size based on shape's textWidth and textHeight
+                if (selectedShape.textWidth && selectedShape.textHeight) {
+                  setTextEditorSize({
+                    width: selectedShape.textWidth,
+                    height: selectedShape.textHeight
+                  });
+                } else {
+                  // Default size if not set
+                  setTextEditorSize({ width: 300, height: 150 });
+                }
+                
+                // Set resize mode
+                setIsResizingTextEditor(true);
+                
+                // Focus the text editor in the next render cycle
+                setTimeout(() => {
+                  if (textEditorRef.current) {
+                    textEditorRef.current.focus();
+                  }
+                }, 0);
+              }}
+            >
+              Resize Text Box
+            </button>
+          )}
+          
           {/* Delete button */}
           <button
             className="mt-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
@@ -1391,6 +2022,98 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         </div>
       )}
       
+      {/* Text editor overlay */}
+      {activeTextEditor && (
+        <div 
+          ref={textEditorContainerRef}
+          className="absolute"
+          style={{
+            left: `${activeTextEditor.points[0].x + panOffset.x}px`,
+            top: `${activeTextEditor.points[0].y + panOffset.y}px`,
+            zIndex: 100,
+            width: `${textEditorSize.width}px`,
+            height: `${textEditorSize.height}px`
+          }}
+        >
+          <div className="relative w-full h-full flex flex-col">
+            <Textarea
+              ref={textEditorRef}
+              value={activeTextEditor.text || ""}
+              onChange={handleTextChange}
+              onBlur={() => {
+                // Add a longer delay to prevent accidental blur when clicking resize handle
+                setTimeout(() => {
+                  if (!isResizingTextEditor) {
+                    handleTextBlur();
+                  }
+                }, 200);
+              }}
+              className="bg-transparent text-current border border-primary resize-none overflow-auto w-full h-full p-2 focus:ring-2 focus:ring-primary whitespace-pre-wrap"
+              style={{
+                color: activeTextEditor.color,
+                fontSize: `${activeTextEditor.fontSize || activeTextEditor.width * 10}px`,
+                fontFamily: "'Segoe Print', 'Comic Sans MS', cursive",
+                lineHeight: "1.2",
+              }}
+              placeholder="Type here..."
+              autoFocus
+              wrap="hard"
+            />
+            
+            {/* Resize handles */}
+            <div 
+              className="absolute bottom-0 right-0 w-8 h-8 bg-primary cursor-nwse-resize rounded-bl-md flex items-center justify-center"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsResizingTextEditor(true);
+                
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startWidth = textEditorSize.width;
+                const startHeight = textEditorSize.height;
+                
+                const handlePointerMove = (moveEvent: PointerEvent) => {
+                  moveEvent.preventDefault();
+                  moveEvent.stopPropagation();
+                  
+                  const dx = moveEvent.clientX - startX;
+                  const dy = moveEvent.clientY - startY;
+                  
+                  const newWidth = Math.max(100, startWidth + dx);
+                  const newHeight = Math.max(40, startHeight + dy);
+                  
+                  handleTextEditorResize(newWidth, newHeight);
+                };
+                
+                const handlePointerUp = (upEvent: PointerEvent) => {
+                  upEvent.preventDefault();
+                  upEvent.stopPropagation();
+                  
+                  document.removeEventListener('pointermove', handlePointerMove);
+                  document.removeEventListener('pointerup', handlePointerUp);
+                  
+                  // Add a small delay before turning off resize mode to prevent accidental blur
+                  setTimeout(() => {
+                    setIsResizingTextEditor(false);
+                  }, 200);
+                };
+                
+                document.addEventListener('pointermove', handlePointerMove);
+                document.addEventListener('pointerup', handlePointerUp);
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <canvas
         ref={canvasRef}
         className={cn(
@@ -1399,12 +2122,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           tool === "hand" && "cursor-grab",
           isDragging && tool === "hand" && "cursor-grabbing",
           tool === "select" && "cursor-pointer",
-          isResizing && "cursor-nwse-resize"
+          isResizing && "cursor-nwse-resize",
+          tool === "text" && "cursor-text"
         )}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
       />
       {Object.entries(cursors).map(([clientId, cursor]) => (
         <UserCursor key={clientId} x={cursor.x} y={cursor.y} name={cursor.user.name} />

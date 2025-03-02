@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -36,6 +36,7 @@ const tools = [
   { id: "select", icon: MousePointer, label: "Select" },
   { id: "hand", icon: Hand, label: "Hand (Pan)" },
   { id: "pen", icon: Pencil, label: "Pen" },
+  { id: "text", icon: Type, label: "Text" },
   { id: "arrow", icon: ArrowRight, label: "Arrow" },
   { id: "rectangle", icon: Square, label: "Rectangle" },
   { id: "circle", icon: Circle, label: "Circle" },
@@ -70,7 +71,7 @@ export function WhiteboardToolbar({
 
   // Show pen settings when drawing tools are selected
   useEffect(() => {
-    if (tool === "pen" || tool === "arrow" || tool === "rectangle" || tool === "circle") {
+    if (tool === "pen" || tool === "arrow" || tool === "rectangle" || tool === "circle" || tool === "text") {
       setShowPenSettings(true);
     } else {
       setShowPenSettings(false);
@@ -194,7 +195,9 @@ export function WhiteboardToolbar({
           </div>
 
           <div>
-            <h3 className="text-sm font-medium mb-2">Stroke Width: {width}px</h3>
+            <h3 className="text-sm font-medium mb-2">
+              {tool === "text" ? "Font Size" : "Stroke Width"}: {width}px
+            </h3>
             <div className="flex items-center gap-4">
               <div 
                 className="h-8 w-8 rounded-full border border-zinc-600 flex items-center justify-center"
