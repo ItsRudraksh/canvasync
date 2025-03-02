@@ -81,6 +81,36 @@ io.on("connection", (socket) => {
       shape,
     })
   })
+  
+  // Handle shape updates (dragging and resizing)
+  socket.on("shape-update", ({ whiteboardId, instanceId, shape, shapes }) => {
+    console.log(`Shape update in whiteboard ${whiteboardId} by ${instanceId}`)
+    
+    // Update the whiteboard shapes
+    if (whiteboardShapes.has(whiteboardId)) {
+      whiteboardShapes.set(whiteboardId, shapes)
+    }
+    
+    socket.to(whiteboardId).emit("shape-updated", {
+      instanceId,
+      shape,
+      shapes,
+    })
+  })
+  
+  socket.on("shape-update-end", ({ whiteboardId, instanceId, shapes }) => {
+    console.log(`Shape update ended in whiteboard ${whiteboardId} by ${instanceId}`)
+    
+    // Update the whiteboard shapes
+    if (whiteboardShapes.has(whiteboardId)) {
+      whiteboardShapes.set(whiteboardId, shapes)
+    }
+    
+    socket.to(whiteboardId).emit("shape-update-ended", {
+      instanceId,
+      shapes,
+    })
+  })
 
   // Handle clear canvas
   socket.on("clear-canvas", ({ whiteboardId, instanceId }) => {

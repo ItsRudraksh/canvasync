@@ -412,6 +412,13 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       
       // If we were dragging a selected shape, save the state
       if (selectedShape && dragStartPoint) {
+        // Final update for other users
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: shapes
+        });
+        
         saveCanvasState(shapes);
       }
       
@@ -425,6 +432,13 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       
       // Save state after resizing
       if (selectedShape) {
+        // Final update for other users
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: shapes
+        });
+        
         saveCanvasState(shapes);
       }
       
@@ -599,6 +613,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
         if (updatedSelectedShape) {
           setSelectedShape(updatedSelectedShape);
+          
+          // Emit socket event for shape update
+          socket?.emit("shape-update", {
+            whiteboardId: id,
+            instanceId,
+            shape: updatedSelectedShape,
+            shapes: updatedShapes
+          });
         }
         
         // Update drag start point
@@ -631,6 +653,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
         if (updatedSelectedShape) {
           setSelectedShape(updatedSelectedShape);
+          
+          // Emit socket event for shape update
+          socket?.emit("shape-update", {
+            whiteboardId: id,
+            instanceId,
+            shape: updatedSelectedShape,
+            shapes: updatedShapes
+          });
         }
         
         // Update drag start point
@@ -725,6 +755,26 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         });
       }
     })
+    
+    socket.on("shape-updated", ({ instanceId: remoteId, shape, shapes: remoteShapes }) => {
+      if (remoteId !== instanceId) {
+        console.log("Remote shape updated:", shape);
+        // Update shapes with the remote shapes
+        setShapes(remoteShapes);
+        // Force redraw
+        redrawCanvas();
+      }
+    })
+    
+    socket.on("shape-update-ended", ({ instanceId: remoteId, shapes: remoteShapes }) => {
+      if (remoteId !== instanceId) {
+        console.log("Remote shape update ended");
+        // Update shapes with the final remote shapes
+        setShapes(remoteShapes);
+        // Force redraw
+        redrawCanvas();
+      }
+    })
 
     socket.on("canvas-cleared", ({ instanceId: remoteId }) => {
       if (remoteId !== instanceId) {
@@ -764,11 +814,13 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       socket.off("draw-started")
       socket.off("draw-progressed")
       socket.off("draw-ended")
+      socket.off("shape-updated")
+      socket.off("shape-update-ended")
       socket.off("canvas-cleared")
       socket.off("cursor-update")
       socket.off("user-left")
     }
-  }, [socket, id, instanceId, currentUser, drawShape])
+  }, [socket, id, instanceId, currentUser, drawShape, redrawCanvas, saveCanvasState])
 
   // Redraw canvas when shapes change
   useEffect(() => {
