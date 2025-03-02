@@ -89,6 +89,10 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const textEditorContainerRef = useRef<HTMLDivElement>(null)
   const [textEditorSize, setTextEditorSize] = useState({ width: 200, height: 100 })
   const [isResizingTextEditor, setIsResizingTextEditor] = useState(false)
+  
+  // Clipboard state for copy/paste
+  const [clipboardShapes, setClipboardShapes] = useState<Shape[]>([])
+  const [cursorPosition, setCursorPosition] = useState<Point | null>(null)
 
   // Initialize canvas context
   const getContext = useCallback(() => {
@@ -371,6 +375,11 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
       // Draw selection indicator for selected shape
       if (shape.selected) {
+        // Save current line width
+        const originalLineWidth = ctx.lineWidth;
+        
+        // Set fixed line width for selection outline
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "#00ff00"
         ctx.setLineDash([5, 5])
         
@@ -406,10 +415,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         }
         
         ctx.setLineDash([])
+        
+        // Restore original line width
+        ctx.lineWidth = originalLineWidth;
       }
       
       // Draw multi-selection indicator
       if (shape.multiSelected) {
+        // Save current line width
+        const originalLineWidth = ctx.lineWidth;
+        
+        // Set fixed line width for multi-selection outline
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "#4285f4" // Google blue
         ctx.setLineDash([5, 5])
         
@@ -425,6 +442,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         )
         
         ctx.setLineDash([])
+        
+        // Restore original line width
+        ctx.lineWidth = originalLineWidth;
       }
 
       ctx.restore()
@@ -1110,7 +1130,149 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     }
     
     setActiveTextEditor(null);
-  }, [activeTextEditor, addToHistory, id, instanceId, saveCanvasState, shapes, socket, textEditorSize, isResizingTextEditor]);
+  }, [activeTextEditor, id, instanceId, saveCanvasState, shapes, socket, textEditorSize, isResizingTextEditor, addToHistory]);
+
+  // Handle copy operation
+  const handleCopy = useCallback(() => {
+    if (isReadOnly) return;
+    
+    // Copy selected shape
+    if (selectedShape) {
+      setClipboardShapes([selectedShape]);
+      console.log("Copied 1 shape to clipboard");
+      return;
+    }
+    
+    // Copy multi-selected shapes
+    if (multiSelectedShapes.length > 0) {
+      setClipboardShapes([...multiSelectedShapes]);
+      console.log(`Copied ${multiSelectedShapes.length} shapes to clipboard`);
+    }
+  }, [selectedShape, multiSelectedShapes, isReadOnly]);
+  
+  // Handle paste operation
+  const handlePaste = useCallback(() => {
+    if (isReadOnly || !cursorPosition || clipboardShapes.length === 0) return;
+    
+    // Calculate the bounding box of the clipboard shapes to find their center
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    clipboardShapes.forEach(shape => {
+      const bounds = getShapeBounds(shape);
+      minX = Math.min(minX, bounds.x1);
+      minY = Math.min(minY, bounds.y1);
+      maxX = Math.max(maxX, bounds.x2);
+      maxY = Math.max(maxY, bounds.y2);
+    });
+    
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    // Calculate offset from center to cursor position
+    const offsetX = cursorPosition.x - centerX;
+    const offsetY = cursorPosition.y - centerY;
+    
+    // Create new shapes with new IDs and positions
+    const newShapes = clipboardShapes.map(shape => {
+      // Create new points with offset
+      const newPoints = shape.points.map(point => ({
+        x: point.x + offsetX,
+        y: point.y + offsetY
+      }));
+      
+      // Create new shape with new ID and points
+      return {
+        ...shape,
+        id: nanoid(),
+        points: newPoints,
+        selected: false,
+        multiSelected: false,
+        isEditing: false
+      };
+    });
+    
+    // Add new shapes to canvas
+    const updatedShapes = [...shapes, ...newShapes];
+    setShapes(updatedShapes);
+    
+    // Emit socket event for shape update
+    socket?.emit("shape-update-end", {
+      whiteboardId: id,
+      instanceId,
+      shapes: updatedShapes
+    });
+    
+    // Save canvas state
+    saveCanvasState(updatedShapes);
+    
+    // Add to history
+    addToHistory(updatedShapes);
+    
+    console.log(`Pasted ${newShapes.length} shapes at cursor position`);
+  }, [clipboardShapes, cursorPosition, shapes, id, instanceId, socket, saveCanvasState, addToHistory, isReadOnly, getShapeBounds]);
+  
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip if we're editing text
+    if (activeTextEditor) return;
+    
+    // Copy: Ctrl+C
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault();
+      handleCopy();
+    }
+    
+    // Paste: Ctrl+V
+    if (e.ctrlKey && e.key === 'v') {
+      e.preventDefault();
+      handlePaste();
+    }
+    
+    // Delete: Delete key
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      
+      // Delete selected shape
+      if (selectedShape) {
+        const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
+        setShapes(updatedShapes);
+        setSelectedShape(null);
+        
+        // Emit socket event for shape update
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: updatedShapes
+        });
+        
+        // Save canvas state
+        saveCanvasState(updatedShapes);
+        
+        // Add to history
+        addToHistory(updatedShapes);
+      }
+      
+      // Delete multi-selected shapes
+      if (multiSelectedShapes.length > 0) {
+        const updatedShapes = shapes.filter(shape => !shape.multiSelected);
+        setShapes(updatedShapes);
+        setMultiSelectedShapes([]);
+        
+        // Emit socket event for shape update
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: updatedShapes
+        });
+        
+        // Save canvas state
+        saveCanvasState(updatedShapes);
+        
+        // Add to history
+        addToHistory(updatedShapes);
+      }
+    }
+  }, [activeTextEditor, handleCopy, handlePaste, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory]);
 
   // Handle double click event
   const handleDoubleClick = useCallback(
@@ -1457,6 +1619,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       const rect = canvas.getBoundingClientRect()
       const x = e.clientX - rect.left - panOffset.x
       const y = e.clientY - rect.top - panOffset.y
+      
+      // Track cursor position for paste functionality
+      setCursorPosition({ x, y })
 
       // Update cursor position
       if (!isReadOnly && currentUser) {
@@ -1897,6 +2062,20 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     redrawCanvas()
   }, [redrawCanvas, shapes, currentShape, panOffset])
 
+  // Add keyboard event listeners for copy/paste
+  useEffect(() => {
+    // Skip if read-only
+    if (isReadOnly) return;
+    
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown, isReadOnly]);
+
   // Load initial data
   useEffect(() => {
     if (initialData) {
@@ -1931,6 +2110,89 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     }
   }, [initialData]);
 
+  // Add multi-selection UI
+  useEffect(() => {
+    // If we have multi-selected shapes, show a floating UI
+    if (multiSelectedShapes.length > 0) {
+      // Calculate the bounding box of all selected shapes
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      
+      multiSelectedShapes.forEach(shape => {
+        const bounds = getShapeBounds(shape);
+        minX = Math.min(minX, bounds.x1);
+        minY = Math.min(minY, bounds.y1);
+        maxX = Math.max(maxX, bounds.x2);
+        maxY = Math.max(maxY, bounds.y2);
+      });
+      
+      // Create a floating UI element
+      const uiElement = document.createElement('div');
+      uiElement.id = 'multi-selection-ui';
+      uiElement.className = 'absolute bg-zinc-800/90 text-white text-sm px-3 py-2 rounded-md shadow-lg backdrop-blur z-20 flex items-center gap-2';
+      uiElement.style.left = `${minX + panOffset.x}px`;
+      uiElement.style.top = `${minY + panOffset.y - 40}px`; // Position above the selection
+      
+      // Add count of selected shapes
+      const countSpan = document.createElement('span');
+      countSpan.textContent = `${multiSelectedShapes.length} shapes selected`;
+      uiElement.appendChild(countSpan);
+      
+      // Add copy button
+      const copyButton = document.createElement('button');
+      copyButton.className = 'bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs font-medium transition-colors ml-2 flex items-center gap-1';
+      copyButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+        </svg>
+        Copy
+      `;
+      copyButton.onclick = handleCopy;
+      uiElement.appendChild(copyButton);
+      
+      // Add delete button
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-xs font-medium transition-colors ml-2 flex items-center gap-1';
+      deleteButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18"></path>
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+        </svg>
+        Delete
+      `;
+      deleteButton.onclick = () => {
+        // Remove all multi-selected shapes
+        const updatedShapes = shapes.filter(shape => !shape.multiSelected);
+        
+        setShapes(updatedShapes);
+        setMultiSelectedShapes([]);
+        
+        // Emit socket event for shape update
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: updatedShapes
+        });
+        
+        // Save canvas state
+        saveCanvasState(updatedShapes);
+        
+        // Add to history
+        addToHistory(updatedShapes);
+      };
+      uiElement.appendChild(deleteButton);
+      
+      // Add to the DOM
+      document.querySelector('.relative.h-full.w-full')?.appendChild(uiElement);
+      
+      // Clean up
+      return () => {
+        document.getElementById('multi-selection-ui')?.remove();
+      };
+    }
+  }, [multiSelectedShapes, getShapeBounds, panOffset, shapes, id, instanceId, socket, saveCanvasState, addToHistory, handleCopy]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900">
       <WhiteboardToolbar
@@ -1947,6 +2209,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         canUndo={canUndo}
         canRedo={canRedo}
       />
+      
+      {/* Copy/Paste Status Indicator */}
+      {clipboardShapes.length > 0 && (
+        <div className="absolute left-4 bottom-4 bg-zinc-800/90 text-white text-sm px-3 py-1.5 rounded-md shadow-lg backdrop-blur z-10 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          </svg>
+          <span>{clipboardShapes.length} {clipboardShapes.length === 1 ? 'shape' : 'shapes'} copied</span>
+          <span className="text-xs text-zinc-400 ml-1">(Ctrl+V to paste)</span>
+        </div>
+      )}
       
       {/* Property editor for selected shape */}
       {selectedShape && (
@@ -2245,28 +2519,46 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           )}
           
           {/* Delete button */}
-          <button
-            className="mt-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
-            onClick={() => {
-              // Remove the selected shape
-              const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
-              
-              setShapes(updatedShapes);
-              setSelectedShape(null);
-              
-              // Emit socket event for shape update
-              socket?.emit("shape-update-end", {
-                whiteboardId: id,
-                instanceId,
-                shapes: updatedShapes
-              });
-              
-              // Save canvas state
-              saveCanvasState(updatedShapes);
-            }}
-          >
-            Delete Shape
-          </button>
+          <div className="flex gap-2 mt-1">
+            <button
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+              onClick={handleCopy}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              </svg>
+              Copy
+            </button>
+            
+            <button
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+              onClick={() => {
+                // Remove the selected shape
+                const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
+                
+                setShapes(updatedShapes);
+                setSelectedShape(null);
+                
+                // Emit socket event for shape update
+                socket?.emit("shape-update-end", {
+                  whiteboardId: id,
+                  instanceId,
+                  shapes: updatedShapes
+                });
+                
+                // Save canvas state
+                saveCanvasState(updatedShapes);
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+              </svg>
+              Delete
+            </button>
+          </div>
         </div>
       )}
       
