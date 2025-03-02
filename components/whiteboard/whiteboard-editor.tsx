@@ -842,6 +842,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           shape: null,
           shapes: updatedShapes
         });
+        
+        // Automatically switch to select tool after area selection
+        setTool("select");
       }
       
       // Clear selection box and area selecting state
@@ -858,17 +861,26 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       
       // Save state after dragging
       if (multiSelectedShapes.length > 0) {
+        // Clear multi-selection after dragging is complete
+        const updatedShapes = shapes.map(shape => ({
+          ...shape,
+          multiSelected: false
+        }));
+        
+        setShapes(updatedShapes);
+        setMultiSelectedShapes([]);
+        
         // Final update for other users
         socket?.emit("shape-update-end", {
           whiteboardId: id,
           instanceId,
-          shapes: shapes
+          shapes: updatedShapes
         });
         
-        saveCanvasState(shapes);
+        saveCanvasState(updatedShapes);
         
         // Add to history
-        addToHistory(shapes);
+        addToHistory(updatedShapes);
       }
       
       return;
@@ -1335,13 +1347,15 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           // Update the selected shape
           setSelectedShape(clickedShape);
           
-          // Mark the shape as selected in the shapes array
+          // Mark the shape as selected in the shapes array and clear any multi-selections
           const updatedShapes = shapes.map(s => ({
             ...s,
-            selected: s.id === clickedShape.id
+            selected: s.id === clickedShape.id,
+            multiSelected: false // Clear all multi-selections when selecting a single shape
           }));
           
           setShapes(updatedShapes);
+          setMultiSelectedShapes([]); // Clear multi-selected shapes array
           
           // Emit socket event to notify other users about selection
           socket?.emit("shape-update", {
@@ -1358,8 +1372,13 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         } else {
           // Deselect if clicking on empty space
           setSelectedShape(null);
-          const updatedShapes = shapes.map(s => ({ ...s, selected: false }));
+          const updatedShapes = shapes.map(s => ({ 
+            ...s, 
+            selected: false,
+            multiSelected: false // Also clear multi-selections
+          }));
           setShapes(updatedShapes);
+          setMultiSelectedShapes([]); // Clear multi-selected shapes array
           
           // Emit socket event to notify other users about deselection
           socket?.emit("shape-update", {
@@ -1732,6 +1751,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           setSelectedShape(null);
         }
         
+        // Clear multi-selected shapes if they've been modified by another user
+        if (multiSelectedShapes.length > 0) {
+          // Check if any of our multi-selected shapes are no longer multi-selected in remote shapes
+          const stillMultiSelected = multiSelectedShapes.every(ms => 
+            remoteShapes.some(rs => rs.id === ms.id && rs.multiSelected)
+          );
+          
+          if (!stillMultiSelected) {
+            setMultiSelectedShapes([]);
+          }
+        }
+        
         // Force redraw
         redrawCanvas();
       }
@@ -1750,17 +1781,20 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         // Update shapes with the final remote shapes
         setShapes(remoteShapes);
         
-        // Check if our selected shape is still selected in remote shapes
-        if (selectedShape) {
-          const remoteSelectedShape = remoteShapes.find(s => s.id === selectedShape.id && s.selected);
-          if (!remoteSelectedShape) {
-            // If our selected shape is no longer selected in remote shapes, deselect it
-            setSelectedShape(null);
+        // Clear multi-selected shapes if they've been modified by another user
+        if (multiSelectedShapes.length > 0) {
+          // Check if any of our multi-selected shapes are no longer multi-selected in remote shapes
+          const stillMultiSelected = multiSelectedShapes.every(ms => 
+            remoteShapes.some(rs => rs.id === ms.id && rs.multiSelected)
+          );
+          
+          if (!stillMultiSelected) {
+            setMultiSelectedShapes([]);
           }
         }
         
-        // Add to history
-        addToHistory(remoteShapes);
+        // Save canvas state
+        saveCanvasState(remoteShapes);
         
         // Force redraw
         redrawCanvas();
