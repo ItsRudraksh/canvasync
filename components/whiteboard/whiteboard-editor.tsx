@@ -63,6 +63,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const [instanceId] = useState(() => nanoid())
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
   const [startPanPoint, setStartPanPoint] = useState<Point | null>(null)
+  const [shapesToErase, setShapesToErase] = useState<string[]>([])
 
   // Initialize canvas context
   const getContext = useCallback(() => {
@@ -98,6 +99,15 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       if (!ctx) return
 
       ctx.save()
+      
+      // Check if shape is marked for erasing
+      const isMarkedForErase = shapesToErase.includes(shape.id);
+      
+      // Apply semi-transparent style for shapes marked for erasing
+      if (isMarkedForErase) {
+        ctx.globalAlpha = 0.3;
+      }
+      
       ctx.strokeStyle = shape.color
       ctx.fillStyle = shape.color
       ctx.lineWidth = shape.width
@@ -205,7 +215,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
       ctx.restore()
     },
-    [getContext, drawArrow],
+    [getContext, drawArrow, shapesToErase],
   )
 
   // Helper function to get shape bounds
@@ -449,6 +459,62 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     [id]
   );
 
+  // Handle eraser functionality
+  const handleEraserMove = useCallback((x: number, y: number) => {
+    // Find shapes that intersect with the eraser
+    const eraserRadius = width * 3; // Increase eraser size for better usability
+    const shapesToHighlight = shapes
+      .filter(shape => {
+        const bounds = getShapeBounds(shape);
+        // Check if eraser circle intersects with shape bounds
+        return (
+          x >= bounds.x1 - eraserRadius &&
+          x <= bounds.x2 + eraserRadius &&
+          y >= bounds.y1 - eraserRadius &&
+          y <= bounds.y2 + eraserRadius
+        );
+      })
+      .map(shape => shape.id);
+    
+    // Update shapes to erase - add to existing list rather than replacing
+    setShapesToErase(prev => {
+      // Create a Set from the previous and new shapes to erase to remove duplicates
+      const combinedSet = new Set([...prev, ...shapesToHighlight]);
+      return Array.from(combinedSet);
+    });
+  }, [shapes, width, getShapeBounds]);
+  
+  // Handle eraser end
+  const handleEraserEnd = useCallback(() => {
+    if (shapesToErase.length === 0) return;
+    
+    // Remove the highlighted shapes
+    const updatedShapes = shapes.filter(shape => !shapesToErase.includes(shape.id));
+    
+    setShapes(updatedShapes);
+    
+    // Emit socket event for shape update
+    socket?.emit("shape-update-end", {
+      whiteboardId: id,
+      instanceId,
+      shapes: updatedShapes
+    });
+    
+    // Save canvas state
+    saveCanvasState(updatedShapes);
+    
+    // Clear shapes to erase
+    setShapesToErase([]);
+  }, [id, instanceId, shapes, shapesToErase, socket, saveCanvasState]);
+
+  // Effect to reset shapesToErase when tool changes
+  useEffect(() => {
+    // Clear shapes to erase when switching away from eraser tool
+    if (tool !== "eraser") {
+      setShapesToErase([]);
+    }
+  }, [tool]);
+
   // Handle pointer up event
   const handlePointerUp = useCallback(() => {
     if (isDragging) {
@@ -489,6 +555,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       
       return;
     }
+    
+    // Handle eraser end
+    if (isDrawing && tool === "eraser") {
+      handleEraserEnd();
+      setIsDrawing(false);
+      setCurrentShape(null);
+      return;
+    }
 
     if (!isDrawing || !currentShape) return
 
@@ -505,7 +579,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
     // Save canvas state to database
     saveCanvasState(updatedShapes);
-  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing]);
+  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing, tool, handleEraserEnd]);
 
   // Clear canvas
   const clearCanvas = useCallback(() => {
@@ -519,11 +593,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     saveCanvasState([]);
   }, [id, instanceId, socket, saveCanvasState]);
 
-  // Handle mouse/touch events
+  // Handle pointer down event
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (isReadOnly) return
-
       const canvas = canvasRef.current
       if (!canvas) return
 
@@ -531,62 +603,112 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       const x = e.clientX - rect.left - panOffset.x
       const y = e.clientY - rect.top - panOffset.y
 
+      // Update cursor position
+      if (!isReadOnly && currentUser) {
+        socket?.emit("cursor-move", {
+          whiteboardId: id,
+          instanceId,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+          user: currentUser,
+        })
+      }
+
+      // Check if we're clicking on a resize handle of a selected shape
+      if (selectedShape) {
+        const handle = getResizeHandle(selectedShape, x, y);
+        if (handle) {
+          setIsResizing(true);
+          setResizeHandle(handle);
+          setDragStartPoint({ x, y });
+          return;
+        }
+      }
+      
+      // Check if we're clicking on a shape to select it
+      if (tool === "select") {
+        // Find the topmost shape that contains the point
+        const clickedShape = [...shapes].reverse().find(shape => {
+          const bounds = getShapeBounds(shape);
+          return (
+            x >= bounds.x1 &&
+            x <= bounds.x2 &&
+            y >= bounds.y1 &&
+            y <= bounds.y2
+          );
+        });
+        
+        if (clickedShape) {
+          // Update the selected shape
+          setSelectedShape(clickedShape);
+          
+          // Mark the shape as selected in the shapes array
+          const updatedShapes = shapes.map(s => ({
+            ...s,
+            selected: s.id === clickedShape.id
+          }));
+          
+          setShapes(updatedShapes);
+          
+          // Start dragging the shape
+          setIsDragging(true);
+          setDragStartPoint({ x, y });
+          return;
+        } else {
+          // Deselect if clicking on empty space
+          setSelectedShape(null);
+          setShapes(shapes.map(s => ({ ...s, selected: false })));
+        }
+      }
+
+      // Handle panning with hand tool
       if (tool === "hand") {
         setIsDragging(true)
         setStartPanPoint({ x: e.clientX, y: e.clientY })
         return
       }
-
-      if (tool === "select") {
-        // First check if we're clicking on a resize handle of the selected shape
-        if (selectedShape) {
-          const handle = getResizeHandle(selectedShape, x, y);
-          if (handle) {
-            setIsResizing(true);
-            setResizeHandle(handle);
-            setDragStartPoint({ x, y });
-            return;
-          }
+      
+      // Handle eraser tool
+      if (tool === "eraser") {
+        setIsDrawing(true);
+        
+        // Reset shapes to erase when starting a new eraser action
+        // only if we're not continuing from a previous eraser action
+        if (!isDrawing) {
+          setShapesToErase([]);
         }
         
-        // Check if we're clicking on a shape
-        const clickedShape = shapes.findLast((shape) => {
-          const bounds = getShapeBounds(shape);
-          return x >= bounds.x1 && x <= bounds.x2 && y >= bounds.y1 && y <= bounds.y2;
-        });
-
-        if (clickedShape) {
-          // Set the shape as selected
-          setSelectedShape(clickedShape)
-          setShapes(
-            shapes.map((s) => ({
-              ...s,
-              selected: s.id === clickedShape.id,
-            })),
-          )
-          
-          // Start dragging the selected shape
-          setIsDragging(true);
-          setDragStartPoint({ x, y });
-          return
-        }
-
-        // If we didn't click on a shape, deselect all
-        setSelectedShape(null)
-        setShapes(shapes.map((s) => ({ ...s, selected: false })))
-        return
+        // Create a new shape for visual feedback
+        const newShape: Shape = {
+          id: nanoid(),
+          tool: "eraser",
+          points: [{ x, y }],
+          color: "#1a1a1a", // Background color
+          width: width,
+          selected: false,
+        };
+        
+        setCurrentShape(newShape);
+        
+        // Find shapes to erase
+        handleEraserMove(x, y);
+        
+        return;
       }
 
-      // For eraser tool, we'll create a shape with the background color
+      // Handle drawing tools
+      setIsDrawing(true)
+
+      // Create a new shape
       const newShape: Shape = {
         id: nanoid(),
         tool,
         points: [{ x, y }],
-        color: tool === "eraser" ? "#1a1a1a" : color, // Use background color for eraser
-        width: tool === "eraser" ? width * 2 : width, // Make eraser slightly larger
+        color,
+        width,
+        selected: false,
       }
 
-      setIsDrawing(true)
       setCurrentShape(newShape)
 
       socket?.emit("draw-start", {
@@ -595,7 +717,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, isReadOnly, socket, shapes, panOffset, selectedShape, getResizeHandle, getShapeBounds],
+    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove],
   )
 
   const handlePointerMove = useCallback(
@@ -673,6 +795,24 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         return;
       }
       
+      // Handle smart eraser
+      if (isDrawing && tool === "eraser") {
+        // Update the current shape for visual feedback
+        if (currentShape) {
+          const updatedPoints = [...currentShape.points, { x, y }];
+          const updatedShape = {
+            ...currentShape,
+            points: updatedPoints,
+          };
+          setCurrentShape(updatedShape);
+        }
+        
+        // Find shapes to erase
+        handleEraserMove(x, y);
+        
+        return;
+      }
+      
       // Handle resizing selected shape
       if (isResizing && resizeHandle && selectedShape) {
         // Initialize dragStartPoint if it's null
@@ -738,7 +878,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape],
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove],
   )
 
   // Handle window resize
@@ -983,46 +1123,67 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           {/* Width slider */}
           <div className="mb-2">
             <label className="text-xs text-zinc-400 mb-1 block">Width: {selectedShape.width}px</label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              value={selectedShape.width}
-              onChange={(e) => {
-                const newWidth = parseInt(e.target.value);
-                
-                // Update the selected shape's width
-                const updatedShapes = shapes.map(shape => {
-                  if (shape.id === selectedShape.id) {
-                    return {
-                      ...shape,
-                      width: newWidth
-                    };
-                  }
-                  return shape;
-                });
-                
-                setShapes(updatedShapes);
-                
-                // Update the selected shape
-                const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                if (updatedSelectedShape) {
-                  setSelectedShape(updatedSelectedShape);
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="1"
+                max="20"
+                value={selectedShape.width}
+                onChange={(e) => {
+                  const newWidth = parseInt(e.target.value);
                   
-                  // Emit socket event for shape update
-                  socket?.emit("shape-update", {
-                    whiteboardId: id,
-                    instanceId,
-                    shape: updatedSelectedShape,
-                    shapes: updatedShapes
+                  // Update the selected shape's width
+                  const updatedShapes = shapes.map(shape => {
+                    if (shape.id === selectedShape.id) {
+                      return {
+                        ...shape,
+                        width: newWidth
+                      };
+                    }
+                    return shape;
                   });
                   
-                  // Save canvas state
-                  saveCanvasState(updatedShapes);
-                }
-              }}
-              className="w-full accent-blue-500"
-            />
+                  setShapes(updatedShapes);
+                  
+                  // Update the selected shape
+                  const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                  if (updatedSelectedShape) {
+                    setSelectedShape(updatedSelectedShape);
+                    
+                    // Emit socket event for shape update
+                    socket?.emit("shape-update", {
+                      whiteboardId: id,
+                      instanceId,
+                      shape: updatedSelectedShape,
+                      shapes: updatedShapes
+                    });
+                    
+                    // Save canvas state
+                    saveCanvasState(updatedShapes);
+                  }
+                }}
+                className="w-full accent-blue-500"
+              />
+              <div 
+                className="h-6 w-6 rounded-full flex-shrink-0 border border-zinc-600"
+                style={{ 
+                  backgroundColor: selectedShape.tool === "eraser" ? "#1a1a1a" : selectedShape.color,
+                }}
+              >
+                <div 
+                  className="h-full w-full rounded-full flex items-center justify-center"
+                >
+                  <div 
+                    className="rounded-full bg-current"
+                    style={{ 
+                      width: `${Math.min(selectedShape.width * 1.2, 20)}px`, 
+                      height: `${Math.min(selectedShape.width * 1.2, 20)}px`,
+                      backgroundColor: selectedShape.tool === "eraser" ? "white" : selectedShape.color
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           
           {/* Delete button */}

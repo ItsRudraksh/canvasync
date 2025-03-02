@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2 } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useState, useEffect, useRef } from "react"
 
 interface WhiteboardToolbarProps {
   tool: string
@@ -57,6 +58,32 @@ export function WhiteboardToolbar({
   isReadOnly,
   onClear,
 }: WhiteboardToolbarProps) {
+  const [showWidthDropdown, setShowWidthDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowWidthDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Show width dropdown when pen tool is selected
+  useEffect(() => {
+    if (tool === "pen" || tool === "arrow" || tool === "rectangle" || tool === "circle") {
+      setShowWidthDropdown(true);
+    } else {
+      setShowWidthDropdown(false);
+    }
+  }, [tool]);
+
   if (isReadOnly) return null
 
   return (
@@ -94,18 +121,42 @@ export function WhiteboardToolbar({
           </Button>
         ))}
       </div>
-      <div className="h-px bg-border" />
-      <div className="px-2 py-1 bg-red-300">
-        <Slider
-          min={1}
-          max={20}
-          step={1}
-          value={[width]}
-          onValueChange={(value) => setWidth(value[0])}
-          className="w-4"
-          orientation="vertical"
-        />
-      </div>
+      
+      {/* Width dropdown for pen tool */}
+      {showWidthDropdown && (
+        <div ref={dropdownRef} className="relative">
+          <div className="h-px bg-border" />
+          <div className="p-2 flex flex-col items-center">
+            <div className="text-xs text-zinc-400 mb-1">Width: {width}px</div>
+            <div className="flex items-center gap-2 mb-2">
+              <Slider
+                min={1}
+                max={20}
+                step={1}
+                value={[width]}
+                onValueChange={(value) => setWidth(value[0])}
+                className="w-20"
+              />
+              <div 
+                className="h-6 w-6 rounded-full flex-shrink-0 border border-zinc-600"
+                style={{ backgroundColor: color }}
+              >
+                <div className="h-full w-full rounded-full flex items-center justify-center">
+                  <div 
+                    className="rounded-full bg-current"
+                    style={{ 
+                      width: `${Math.min(width * 1.2, 20)}px`, 
+                      height: `${Math.min(width * 1.2, 20)}px`,
+                      backgroundColor: color
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="h-px bg-border" />
       <AlertDialog>
         <AlertDialogTrigger asChild>
