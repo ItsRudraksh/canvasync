@@ -480,9 +480,18 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     setShapesToErase(prev => {
       // Create a Set from the previous and new shapes to erase to remove duplicates
       const combinedSet = new Set([...prev, ...shapesToHighlight]);
-      return Array.from(combinedSet);
+      const newShapesToErase = Array.from(combinedSet);
+      
+      // Emit socket event for eraser highlighting
+      socket?.emit("eraser-highlight", {
+        whiteboardId: id,
+        instanceId,
+        shapesToErase: newShapesToErase
+      });
+      
+      return newShapesToErase;
     });
-  }, [shapes, width, getShapeBounds]);
+  }, [shapes, width, getShapeBounds, socket, id, instanceId]);
   
   // Handle eraser end
   const handleEraserEnd = useCallback(() => {
@@ -961,6 +970,16 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       }
     })
 
+    socket.on("eraser-highlighted", ({ instanceId: remoteId, shapesToErase: remoteShapesToErase }) => {
+      if (remoteId !== instanceId) {
+        console.log("Remote eraser highlight:", remoteShapesToErase.length, "shapes");
+        // Update shapes to erase with the remote shapes to erase
+        setShapesToErase(remoteShapesToErase);
+        // Force redraw to show the highlighted shapes
+        redrawCanvas();
+      }
+    })
+
     socket.on("canvas-cleared", ({ instanceId: remoteId }) => {
       if (remoteId !== instanceId) {
         console.log("Remote canvas cleared");
@@ -1001,6 +1020,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       socket.off("draw-ended")
       socket.off("shape-updated")
       socket.off("shape-update-ended")
+      socket.off("eraser-highlighted")
       socket.off("canvas-cleared")
       socket.off("cursor-update")
       socket.off("user-left")

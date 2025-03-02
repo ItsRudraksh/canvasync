@@ -112,6 +112,16 @@ io.on("connection", (socket) => {
     })
   })
 
+  // Handle eraser highlighting
+  socket.on("eraser-highlight", ({ whiteboardId, instanceId, shapesToErase }) => {
+    console.log(`Eraser highlight in whiteboard ${whiteboardId} by ${instanceId}, highlighting ${shapesToErase.length} shapes`)
+    
+    socket.to(whiteboardId).emit("eraser-highlighted", {
+      instanceId,
+      shapesToErase,
+    })
+  })
+
   // Handle clear canvas
   socket.on("clear-canvas", ({ whiteboardId, instanceId }) => {
     console.log(`Canvas cleared in whiteboard ${whiteboardId} by ${instanceId}`)
