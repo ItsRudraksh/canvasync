@@ -30,6 +30,8 @@ interface WhiteboardToolbarProps {
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  strokeStyle: string
+  setStrokeStyle: (style: string) => void
 }
 
 const tools = [
@@ -56,6 +58,12 @@ const colors = [
   "#44FFFF", // Cyan
 ]
 
+const strokeStyles = [
+  { id: "solid", label: "Solid", dashArray: [] },
+  { id: "dashed", label: "Dashed", dashArray: [10, 5] },
+  { id: "dotted", label: "Dotted", dashArray: [2, 4] },
+]
+
 export function WhiteboardToolbar({
   tool,
   setTool,
@@ -69,6 +77,8 @@ export function WhiteboardToolbar({
   onRedo,
   canUndo = false,
   canRedo = false,
+  strokeStyle,
+  setStrokeStyle,
 }: WhiteboardToolbarProps) {
   const [showPenSettings, setShowPenSettings] = useState(false);
 
@@ -196,6 +206,42 @@ export function WhiteboardToolbar({
               ))}
             </div>
           </div>
+
+          {/* Stroke Style Selector - Only show for shapes that can have different stroke styles */}
+          {tool !== "text" && tool !== "eraser" && (
+            <div className="mb-4">
+              <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
+              <div className="flex gap-2">
+                {strokeStyles.map((style) => (
+                  <Button
+                    key={style.id}
+                    variant={strokeStyle === style.id ? "default" : "outline"}
+                    className="flex-1 h-8"
+                    onClick={() => setStrokeStyle(style.id)}
+                  >
+                    <div className="w-full flex items-center justify-center">
+                      <div 
+                        className="w-full h-1 bg-current"
+                        style={{ 
+                          backgroundImage: style.id === "solid" 
+                            ? "none" 
+                            : style.id === "dashed" 
+                              ? "linear-gradient(to right, currentColor 10px, transparent 5px)" 
+                              : "linear-gradient(to right, currentColor 2px, transparent 4px)",
+                          backgroundSize: style.id === "solid" 
+                            ? "auto" 
+                            : style.id === "dashed" 
+                              ? "15px 100%" 
+                              : "6px 100%",
+                          backgroundRepeat: "repeat-x"
+                        }}
+                      />
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <h3 className="text-sm font-medium mb-2">

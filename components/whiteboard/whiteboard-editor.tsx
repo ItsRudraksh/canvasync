@@ -38,6 +38,7 @@ interface Shape {
   textWidth?: number
   textHeight?: number
   controlPoint?: Point  // Control point for curved arrows
+  strokeStyle?: string  // For solid, dashed, or dotted lines
 }
 
 interface WhiteboardEditorProps {
@@ -68,6 +69,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const [tool, setTool] = useState("pen")
   const [color, setColor] = useState("#FFFFFF") // Default to white for dark mode
   const [width, setWidth] = useState(2)
+  const [strokeStyle, setStrokeStyle] = useState("solid") // Default to solid line
   const [cursors, setCursors] = useState<Record<string, { x: number; y: number; user: any }>>({})
   const [instanceId] = useState(() => nanoid())
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
@@ -337,6 +339,24 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
       ctx.lineCap = "round"
       ctx.lineJoin = "round"
 
+      // Apply stroke style if specified
+      if (shape.strokeStyle) {
+        switch (shape.strokeStyle) {
+          case "dashed":
+            ctx.setLineDash([10, 5]);
+            break;
+          case "dotted":
+            ctx.setLineDash([2, 4]);
+            break;
+          case "solid":
+          default:
+            ctx.setLineDash([]);
+            break;
+        }
+      } else {
+        ctx.setLineDash([]);
+      }
+
       if (shape.transform) {
         ctx.translate(shape.transform.x, shape.transform.y)
         ctx.scale(shape.transform.scale, shape.transform.scale)
@@ -486,6 +506,9 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           }
           break
       }
+
+      // Reset line dash before drawing selection indicators
+      ctx.setLineDash([])
 
       // Draw selection indicator for selected shape
       if (shape.selected) {
@@ -1817,6 +1840,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         points: [{ x, y }],
         color,
         width,
+        strokeStyle,
         selected: false,
         ...(tool === "curved-arrow" ? {
           controlPoint: {
@@ -1834,7 +1858,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor, multiSelectedShapes]
+    [id, instanceId, tool, color, width, strokeStyle, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor, multiSelectedShapes]
   )
 
   const handlePointerMove = useCallback(
@@ -2074,7 +2098,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor, isAreaSelecting, selectionBox, isMultiDragging, multiSelectedShapes]
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor, isAreaSelecting, selectionBox, isMultiDragging, multiSelectedShapes, strokeStyle]
   )
 
   // Handle window resize
@@ -2445,7 +2469,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   }, [multiSelectedShapes, getShapeBounds, panOffset, shapes, id, instanceId, socket, saveCanvasState, addToHistory, handleCopy]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-zinc-900">
+    <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar
         tool={tool}
         setTool={setTool}
@@ -2459,6 +2483,8 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         onRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        strokeStyle={strokeStyle}
+        setStrokeStyle={setStrokeStyle}
       />
       
       {/* Copy/Paste Status Indicator */}
@@ -2546,6 +2572,79 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
                     }}
                   >
                     {selectedShape.color === c && <div className="h-3 w-3 rounded-full bg-white" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Stroke Style - only show for shapes that can have different stroke styles */}
+          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
+            <div className="mb-3">
+              <label className="text-xs text-zinc-400 mb-1 block">Stroke Style</label>
+              <div className="flex gap-1">
+                {[
+                  { id: "solid", label: "Solid" },
+                  { id: "dashed", label: "Dashed" },
+                  { id: "dotted", label: "Dotted" }
+                ].map((style) => (
+                  <button
+                    key={style.id}
+                    className={`flex-1 py-1 px-2 text-xs rounded ${
+                      (selectedShape.strokeStyle || "solid") === style.id 
+                        ? "bg-blue-500 text-white" 
+                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                    }`}
+                    onClick={() => {
+                      // Update the selected shape's stroke style
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            strokeStyle: style.id
+                          };
+                        }
+                        return shape;
+                      });
+                      
+                      setShapes(updatedShapes);
+                      
+                      // Update the selected shape
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        
+                        // Emit socket event for shape update
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        
+                        // Save canvas state
+                        saveCanvasState(updatedShapes);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-center">
+                      <div 
+                        className="w-full h-1 bg-current"
+                        style={{ 
+                          backgroundImage: style.id === "solid" 
+                            ? "none" 
+                            : style.id === "dashed" 
+                              ? "linear-gradient(to right, currentColor 10px, transparent 5px)" 
+                              : "linear-gradient(to right, currentColor 2px, transparent 4px)",
+                          backgroundSize: style.id === "solid" 
+                            ? "auto" 
+                            : style.id === "dashed" 
+                              ? "15px 100%" 
+                              : "6px 100%",
+                          backgroundRepeat: "repeat-x"
+                        }}
+                      />
+                    </div>
                   </button>
                 ))}
               </div>
