@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -34,6 +34,7 @@ interface WhiteboardToolbarProps {
 
 const tools = [
   { id: "select", icon: MousePointer, label: "Select" },
+  { id: "area-select", icon: SquareMousePointer, label: "Area Select" },
   { id: "hand", icon: Hand, label: "Hand (Pan)" },
   { id: "pen", icon: Pencil, label: "Pen" },
   { id: "text", icon: Type, label: "Text" },

@@ -25,6 +25,7 @@ interface Shape {
   color: string
   width: number
   selected?: boolean
+  multiSelected?: boolean
   transform?: {
     x: number
     y: number
@@ -72,6 +73,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   const [startPanPoint, setStartPanPoint] = useState<Point | null>(null)
   const [shapesToErase, setShapesToErase] = useState<string[]>([])
   
+  // Area selection state
+  const [selectionBox, setSelectionBox] = useState<{start: Point, end: Point} | null>(null)
+  const [isAreaSelecting, setIsAreaSelecting] = useState(false)
+  const [multiSelectedShapes, setMultiSelectedShapes] = useState<Shape[]>([])
+  const [isMultiDragging, setIsMultiDragging] = useState(false)
+  
   // History state for undo/redo
   const [history, setHistory] = useState<Shape[][]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
@@ -85,12 +92,123 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
   // Initialize canvas context
   const getContext = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return null
-    return ctx
-  }, [])
+    if (canvasRef.current) {
+      return canvasRef.current.getContext("2d")
+    }
+    return null
+  }, [canvasRef])
+
+  // Helper function to get shape bounds
+  const getShapeBounds = useCallback((shape: Shape) => {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    
+    // Calculate bounds based on shape type
+    switch (shape.tool) {
+      case "pen":
+      case "eraser":
+        // For pen and eraser, find min/max of all points
+        shape.points.forEach(point => {
+          x1 = Math.min(x1, point.x);
+          y1 = Math.min(y1, point.y);
+          x2 = Math.max(x2, point.x);
+          y2 = Math.max(y2, point.y);
+        });
+        break;
+        
+      case "rectangle":
+      case "arrow":
+        // For rectangle and arrow, use first and last point
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          x1 = Math.min(start.x, end.x);
+          y1 = Math.min(start.y, end.y);
+          x2 = Math.max(start.x, end.x);
+          y2 = Math.max(start.y, end.y);
+        }
+        break;
+        
+      case "circle":
+        // For circle, calculate bounds based on radius
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+          x1 = start.x - radius;
+          y1 = start.y - radius;
+          x2 = start.x + radius;
+          y2 = start.y + radius;
+        }
+        break;
+        
+      case "text":
+        // For text, calculate bounds based on text content
+        if (shape.points.length > 0 && shape.text) {
+          const point = shape.points[0];
+          const ctx = getContext();
+          if (ctx) {
+            const fontSize = shape.fontSize || shape.width * 10;
+            ctx.font = `${fontSize}px 'Segoe Print', 'Comic Sans MS', cursive`;
+            
+            if (shape.textWidth) {
+              // If text has a defined width (for wrapping), use that
+              x1 = point.x;
+              y1 = point.y;
+              x2 = point.x + shape.textWidth;
+              
+              // Calculate height based on text wrapping and line breaks
+              const lines = shape.text.split('\n');
+              let lineCount = 0;
+              
+              lines.forEach(line => {
+                // Count empty lines
+                if (line.trim() === '') {
+                  lineCount++;
+                  return;
+                }
+                
+                // Count wrapped lines
+                const words = line.split(' ');
+                let currentLine = '';
+                
+                for (let i = 0; i < words.length; i++) {
+                  const testLine = currentLine + words[i] + ' ';
+                  const metrics = ctx.measureText(testLine);
+                  const testWidth = metrics.width;
+                  
+                  if (testWidth > (shape.textWidth || 0) && i > 0) {
+                    currentLine = words[i] + ' ';
+                    lineCount++;
+                  } else {
+                    currentLine = testLine;
+                  }
+                }
+                
+                // Count the last line of each paragraph
+                if (currentLine.trim() !== '') {
+                  lineCount++;
+                }
+              });
+              
+              // Ensure at least one line
+              lineCount = Math.max(1, lineCount);
+              y2 = point.y + lineCount * fontSize * 1.2;
+            } else {
+              // Simple text without wrapping, but still respect line breaks
+              const lines = shape.text.split('\n');
+              const metrics = ctx.measureText(shape.text);
+              x1 = point.x;
+              y1 = point.y;
+              x2 = point.x + metrics.width;
+              y2 = point.y + lines.length * fontSize * 1.2;
+            }
+          }
+        }
+        break;
+    }
+    
+    return { x1, y1, x2, y2 };
+  }, [getContext]);
 
   // Draw arrow
   const drawArrow = useCallback((ctx: CanvasRenderingContext2D, from: Point, to: Point, width: number) => {
@@ -227,7 +345,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
                   const metrics = ctx.measureText(testLine);
                   const testWidth = metrics.width;
                   
-                  if (testWidth > shape.textWidth && i > 0) {
+                  if (testWidth > (shape.textWidth || 0) && i > 0) {
                     ctx.fillText(currentLine, point.x, y);
                     currentLine = words[i] + ' ';
                     y += fontSize * 1.2; // Line height
@@ -251,6 +369,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           break
       }
 
+      // Draw selection indicator for selected shape
       if (shape.selected) {
         ctx.strokeStyle = "#00ff00"
         ctx.setLineDash([5, 5])
@@ -288,136 +407,30 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         
         ctx.setLineDash([])
       }
+      
+      // Draw multi-selection indicator
+      if (shape.multiSelected) {
+        ctx.strokeStyle = "#4285f4" // Google blue
+        ctx.setLineDash([5, 5])
+        
+        // Get shape bounds
+        const bounds = getShapeBounds(shape);
+        
+        // Draw selection rectangle
+        ctx.strokeRect(
+          bounds.x1 - 5,
+          bounds.y1 - 5,
+          bounds.x2 - bounds.x1 + 10,
+          bounds.y2 - bounds.y1 + 10
+        )
+        
+        ctx.setLineDash([])
+      }
 
       ctx.restore()
     },
-    [getContext, drawArrow, shapesToErase],
+    [getContext, drawArrow, shapesToErase, getShapeBounds],
   )
-
-  // Helper function to get shape bounds
-  const getShapeBounds = useCallback((shape: Shape) => {
-    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-    
-    // Calculate bounds based on shape type
-    switch (shape.tool) {
-      case "pen":
-      case "eraser":
-        // For pen and eraser, find min/max of all points
-        shape.points.forEach(point => {
-          x1 = Math.min(x1, point.x);
-          y1 = Math.min(y1, point.y);
-          x2 = Math.max(x2, point.x);
-          y2 = Math.max(y2, point.y);
-        });
-        break;
-        
-      case "rectangle":
-      case "arrow":
-        // For rectangle and arrow, use first and last point
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[shape.points.length - 1];
-          x1 = Math.min(start.x, end.x);
-          y1 = Math.min(start.y, end.y);
-          x2 = Math.max(start.x, end.x);
-          y2 = Math.max(start.y, end.y);
-        }
-        break;
-        
-      case "circle":
-        // For circle, calculate bounds based on radius
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[shape.points.length - 1];
-          const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-          x1 = start.x - radius;
-          y1 = start.y - radius;
-          x2 = start.x + radius;
-          y2 = start.y + radius;
-        }
-        break;
-        
-      case "text":
-        // For text, calculate bounds based on text content
-        if (shape.points.length > 0 && shape.text) {
-          const point = shape.points[0];
-          const ctx = getContext();
-          if (ctx) {
-            const fontSize = shape.fontSize || shape.width * 10;
-            ctx.font = `${fontSize}px 'Segoe Print', 'Comic Sans MS', cursive`;
-            
-            if (shape.textWidth) {
-              // If text has a defined width (for wrapping), use that
-              x1 = point.x;
-              y1 = point.y;
-              x2 = point.x + shape.textWidth;
-              
-              // Calculate height based on text wrapping and line breaks
-              const lines = shape.text.split('\n');
-              let lineCount = 0;
-              
-              lines.forEach(line => {
-                // Count empty lines
-                if (line.trim() === '') {
-                  lineCount++;
-                  return;
-                }
-                
-                // Count wrapped lines
-                const words = line.split(' ');
-                let currentLine = '';
-                
-                for (let i = 0; i < words.length; i++) {
-                  const testLine = currentLine + words[i] + ' ';
-                  const metrics = ctx.measureText(testLine);
-                  const testWidth = metrics.width;
-                  
-                  if (testWidth > shape.textWidth && i > 0) {
-                    currentLine = words[i] + ' ';
-                    lineCount++;
-                  } else {
-                    currentLine = testLine;
-                  }
-                }
-                
-                // Count the last line of each paragraph
-                if (currentLine.trim() !== '') {
-                  lineCount++;
-                }
-              });
-              
-              // Ensure at least one line
-              lineCount = Math.max(1, lineCount);
-              y2 = point.y + lineCount * fontSize * 1.2;
-            } else {
-              // Simple text without wrapping, but still respect line breaks
-              const lines = shape.text.split('\n');
-              x1 = point.x;
-              y1 = point.y;
-              
-              // Find the widest line
-              let maxWidth = 0;
-              lines.forEach(line => {
-                const metrics = ctx.measureText(line);
-                maxWidth = Math.max(maxWidth, metrics.width);
-              });
-              
-              x2 = point.x + maxWidth;
-              y2 = point.y + lines.length * fontSize * 1.2;
-            }
-          } else {
-            // Fallback if context is not available
-            x1 = point.x;
-            y1 = point.y;
-            x2 = point.x + 100; // Arbitrary width
-            y2 = point.y + 20;  // Arbitrary height
-          }
-        }
-        break;
-    }
-    
-    return { x1, y1, x2, y2 };
-  }, [getContext]);
 
   // Helper function to check if a point is near a resize handle
   const getResizeHandle = useCallback((shape: Shape, x: number, y: number) => {
@@ -575,6 +588,29 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     };
   }, [getShapeBounds]);
 
+  // Draw selection box
+  const drawSelectionBox = useCallback((box: {start: Point, end: Point}) => {
+    const ctx = getContext()
+    if (!ctx) return
+
+    const { start, end } = box
+    const width = Math.abs(end.x - start.x)
+    const height = Math.abs(end.y - start.y)
+    const x = Math.min(start.x, end.x)
+    const y = Math.min(start.y, end.y)
+
+    // Draw semi-transparent blue rectangle
+    ctx.fillStyle = 'rgba(66, 133, 244, 0.1)'
+    ctx.fillRect(x, y, width, height)
+    
+    // Draw blue border
+    ctx.strokeStyle = 'rgba(66, 133, 244, 0.8)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([5, 3])
+    ctx.strokeRect(x, y, width, height)
+    ctx.setLineDash([])
+  }, [getContext])
+
   // Redraw entire canvas
   const redrawCanvas = useCallback(() => {
     const ctx = getContext()
@@ -595,9 +631,14 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     if (currentShape) {
       drawShape(currentShape)
     }
+    
+    // Draw selection box if area selecting
+    if (selectionBox) {
+      drawSelectionBox(selectionBox)
+    }
 
     ctx.restore()
-  }, [getContext, drawShape, shapes, currentShape, panOffset])
+  }, [getContext, drawShape, shapes, currentShape, panOffset, selectionBox, drawSelectionBox])
 
   // Save canvas state to database
   const saveCanvasState = useCallback(
@@ -759,6 +800,80 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
   // Handle pointer up event
   const handlePointerUp = useCallback(() => {
+    // Handle area selection completion
+    if (isAreaSelecting && selectionBox) {
+      // Calculate the selection box bounds
+      const x1 = Math.min(selectionBox.start.x, selectionBox.end.x);
+      const y1 = Math.min(selectionBox.start.y, selectionBox.end.y);
+      const x2 = Math.max(selectionBox.start.x, selectionBox.end.x);
+      const y2 = Math.max(selectionBox.start.y, selectionBox.end.y);
+      
+      // Find all shapes that intersect with the selection box
+      const selectedShapes = shapes.filter(shape => {
+        const bounds = getShapeBounds(shape);
+        // Check if shape bounds intersect with selection box
+        return (
+          bounds.x2 >= x1 && 
+          bounds.x1 <= x2 && 
+          bounds.y2 >= y1 && 
+          bounds.y1 <= y2
+        );
+      });
+      
+      // Mark selected shapes
+      if (selectedShapes.length > 0) {
+        const updatedShapes = shapes.map(shape => {
+          const isSelected = selectedShapes.some(s => s.id === shape.id);
+          return {
+            ...shape,
+            selected: false, // Clear single selection
+            multiSelected: isSelected // Set multi-selection
+          };
+        });
+        
+        setShapes(updatedShapes);
+        setMultiSelectedShapes(selectedShapes);
+        setSelectedShape(null);
+        
+        // Emit socket event for shape update
+        socket?.emit("shape-update", {
+          whiteboardId: id,
+          instanceId,
+          shape: null,
+          shapes: updatedShapes
+        });
+      }
+      
+      // Clear selection box and area selecting state
+      setSelectionBox(null);
+      setIsAreaSelecting(false);
+      
+      return;
+    }
+    
+    // Handle multi-dragging completion
+    if (isMultiDragging) {
+      setIsMultiDragging(false);
+      setDragStartPoint(null);
+      
+      // Save state after dragging
+      if (multiSelectedShapes.length > 0) {
+        // Final update for other users
+        socket?.emit("shape-update-end", {
+          whiteboardId: id,
+          instanceId,
+          shapes: shapes
+        });
+        
+        saveCanvasState(shapes);
+        
+        // Add to history
+        addToHistory(shapes);
+      }
+      
+      return;
+    }
+    
     if (isDragging) {
       setIsDragging(false)
       setStartPanPoint(null)
@@ -833,7 +948,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     
     // Add to history
     addToHistory(updatedShapes);
-  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing, tool, handleEraserEnd, addToHistory]);
+  }, [id, instanceId, isDrawing, currentShape, socket, isDragging, shapes, saveCanvasState, selectedShape, dragStartPoint, isResizing, tool, handleEraserEnd, addToHistory, isAreaSelecting, selectionBox, getShapeBounds, isMultiDragging, multiSelectedShapes])
 
   // Clear canvas
   const clearCanvas = useCallback(() => {
@@ -1155,6 +1270,54 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         }
       }
       
+      // Handle area selection tool
+      if (tool === "area-select") {
+        // Start area selection
+        setIsAreaSelecting(true);
+        setSelectionBox({
+          start: { x, y },
+          end: { x, y }
+        });
+        
+        // Clear any existing selections
+        setSelectedShape(null);
+        setMultiSelectedShapes([]);
+        
+        const updatedShapes = shapes.map(s => ({ 
+          ...s, 
+          selected: false,
+          multiSelected: false 
+        }));
+        
+        setShapes(updatedShapes);
+        
+        return;
+      }
+      
+      // Check if we're clicking on a multi-selected shape to drag all selected shapes
+      if (tool === "select") {
+        // Find if we're clicking on a multi-selected shape
+        const clickedMultiSelectedShape = [...shapes].reverse().find(shape => {
+          if (shape.multiSelected) {
+            const bounds = getShapeBounds(shape);
+            return (
+              x >= bounds.x1 &&
+              x <= bounds.x2 &&
+              y >= bounds.y1 &&
+              y <= bounds.y2
+            );
+          }
+          return false;
+        });
+        
+        if (clickedMultiSelectedShape && multiSelectedShapes.length > 0) {
+          // Start dragging all multi-selected shapes
+          setIsMultiDragging(true);
+          setDragStartPoint({ x, y });
+          return;
+        }
+      }
+      
       // Check if we're clicking on a shape to select it
       if (tool === "select") {
         // Find the topmost shape that contains the point
@@ -1264,7 +1427,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor]
+    [id, instanceId, tool, color, width, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor, multiSelectedShapes]
   )
 
   const handlePointerMove = useCallback(
@@ -1285,6 +1448,57 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           y: e.clientY - rect.top,
           user: currentUser,
         })
+      }
+
+      // Handle area selection
+      if (isAreaSelecting && selectionBox) {
+        // Update the selection box end point
+        setSelectionBox({
+          ...selectionBox,
+          end: { x, y }
+        });
+        return;
+      }
+      
+      // Handle multi-selection dragging
+      if (isMultiDragging && dragStartPoint && multiSelectedShapes.length > 0) {
+        const dx = x - dragStartPoint.x;
+        const dy = y - dragStartPoint.y;
+        
+        // Update all multi-selected shapes
+        const updatedShapes = shapes.map(shape => {
+          if (shape.multiSelected) {
+            // Create new points array with updated positions
+            const newPoints = shape.points.map(point => ({
+              x: point.x + dx,
+              y: point.y + dy
+            }));
+            
+            return {
+              ...shape,
+              points: newPoints
+            };
+          }
+          return shape;
+        });
+        
+        setShapes(updatedShapes);
+        
+        // Update multi-selected shapes
+        const updatedMultiSelectedShapes = updatedShapes.filter(s => s.multiSelected);
+        setMultiSelectedShapes(updatedMultiSelectedShapes);
+        
+        // Emit socket event for shape update
+        socket?.emit("shape-update", {
+          whiteboardId: id,
+          instanceId,
+          shape: null,
+          shapes: updatedShapes
+        });
+        
+        // Update drag start point
+        setDragStartPoint({ x, y });
+        return;
       }
 
       // Handle panning with hand tool
@@ -1425,7 +1639,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor]
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor, isAreaSelecting, selectionBox, isMultiDragging, multiSelectedShapes]
   )
 
   // Handle window resize
@@ -2122,6 +2336,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           tool === "hand" && "cursor-grab",
           isDragging && tool === "hand" && "cursor-grabbing",
           tool === "select" && "cursor-pointer",
+          tool === "area-select" && "cursor-crosshair",
           isResizing && "cursor-nwse-resize",
           tool === "text" && "cursor-text"
         )}
