@@ -133,6 +133,20 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         }
         break;
         
+      case "diamond":
+        // For diamond, use first and last point to calculate bounds
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[shape.points.length - 1];
+          const width = Math.abs(end.x - start.x);
+          const height = Math.abs(end.y - start.y);
+          x1 = Math.min(start.x, end.x);
+          y1 = Math.min(start.y, end.y);
+          x2 = Math.max(start.x, end.x);
+          y2 = Math.max(start.y, end.y);
+        }
+        break;
+        
       case "curved-arrow":
         // For curved arrow, include the control point in the bounds calculation
         if (shape.points.length >= 2) {
@@ -385,6 +399,24 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           }
           break
 
+        case "diamond":
+          if (shape.points.length >= 2) {
+            const start = shape.points[0];
+            const end = shape.points[shape.points.length - 1];
+            const width = end.x - start.x;
+            const height = end.y - start.y;
+            
+            // Draw diamond shape
+            ctx.beginPath();
+            ctx.moveTo(start.x + width/2, start.y); // Top point
+            ctx.lineTo(start.x + width, start.y + height/2); // Right point
+            ctx.lineTo(start.x + width/2, start.y + height); // Bottom point
+            ctx.lineTo(start.x, start.y + height/2); // Left point
+            ctx.closePath();
+            ctx.stroke();
+          }
+          break
+
         case "circle":
           if (shape.points.length >= 2) {
             const start = shape.points[0];
@@ -582,52 +614,65 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     const newPoints = [...shape.points];
     
     switch (shape.tool) {
-      case "pen":
-      case "eraser":
-        // For pen and eraser, we need to scale all points
-        const bounds = getShapeBounds(shape);
-        const width = bounds.x2 - bounds.x1;
-        const height = bounds.y2 - bounds.y1;
-        
-        // Calculate scale factors based on which handle is being dragged
-        let scaleX = 1;
-        let scaleY = 1;
-        let translateX = 0;
-        let translateY = 0;
-        
-        switch (handle) {
-          case "tl": // Top-left
-            scaleX = (width - dx) / width;
-            scaleY = (height - dy) / height;
-            translateX = dx;
-            translateY = dy;
-            break;
-          case "tr": // Top-right
-            scaleX = (width + dx) / width;
-            scaleY = (height - dy) / height;
-            translateY = dy;
-            break;
-          case "bl": // Bottom-left
-            scaleX = (width - dx) / width;
-            scaleY = (height + dy) / height;
-            translateX = dx;
-            break;
-          case "br": // Bottom-right
-            scaleX = (width + dx) / width;
-            scaleY = (height + dy) / height;
-            break;
-        }
-        
-        // Apply scaling to all points
-        return {
-          ...shape,
-          points: shape.points.map(point => ({
-            x: bounds.x1 + (point.x - bounds.x1) * scaleX + translateX,
-            y: bounds.y1 + (point.y - bounds.y1) * scaleY + translateY
-          }))
-        };
-        
       case "rectangle":
+        if (shape.points.length >= 2) {
+          const start = {...shape.points[0]};
+          const end = {...shape.points[1]};
+          
+          switch (handle) {
+            case "tl":
+              start.x += dx;
+              start.y += dy;
+              break;
+            case "tr":
+              end.x += dx;
+              start.y += dy;
+              break;
+            case "bl":
+              start.x += dx;
+              end.y += dy;
+              break;
+            case "br":
+              end.x += dx;
+              end.y += dy;
+              break;
+          }
+          
+          newPoints[0] = start;
+          newPoints[1] = end;
+        }
+        break;
+      
+      case "diamond":
+        if (shape.points.length >= 2) {
+          const start = {...shape.points[0]};
+          const end = {...shape.points[1]};
+          
+          // Adjust points based on the handle
+          switch (handle) {
+            case "tl": // Top-left
+              start.x += dx;
+              start.y += dy;
+              break;
+            case "tr": // Top-right
+              end.x += dx;
+              start.y += dy;
+              break;
+            case "bl": // Bottom-left
+              start.x += dx;
+              end.y += dy;
+              break;
+            case "br": // Bottom-right
+              end.x += dx;
+              end.y += dy;
+              break;
+          }
+          
+          newPoints[0] = start;
+          newPoints[1] = end;
+        }
+        break;
+      
       case "arrow":
         if (shape.points.length >= 2) {
           const start = {...shape.points[0]};
@@ -656,7 +701,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           newPoints[1] = end;
         }
         break;
-        
+      
       case "curved-arrow":
         if (shape.points.length >= 2) {
           // Check if we're dragging the control point
@@ -737,7 +782,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
           }
         }
         break;
-        
+      
       case "circle":
         if (shape.points.length >= 2) {
           const center = shape.points[0];
@@ -2008,7 +2053,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
 
       // For shapes like rectangle and circle, we only need the start and current point
       let updatedPoints;
-      if (tool === "rectangle" || tool === "circle" || tool === "arrow" || tool === "curved-arrow") {
+      if (tool === "rectangle" || tool === "circle" || tool === "diamond" || tool === "arrow" || tool === "curved-arrow") {
         // For these shapes, we only need the start and current point
         updatedPoints = [currentShape.points[0], { x, y }];
       } else {

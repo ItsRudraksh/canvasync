@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -42,6 +42,7 @@ const tools = [
   { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow" },
   { id: "rectangle", icon: Square, label: "Rectangle" },
   { id: "circle", icon: Circle, label: "Circle" },
+  { id: "diamond", icon: Diamond, label: "Diamond" },
   { id: "eraser", icon: Eraser, label: "Eraser" },
 ]
 
@@ -73,7 +74,7 @@ export function WhiteboardToolbar({
 
   // Show pen settings when drawing tools are selected
   useEffect(() => {
-    if (tool === "pen" || tool === "arrow" || tool === "curved-arrow" || tool === "rectangle" || tool === "circle" || tool === "text") {
+    if (tool === "pen" || tool === "arrow" || tool === "curved-arrow" || tool === "rectangle" || tool === "circle" || tool === "diamond" || tool === "text") {
       setShowPenSettings(true);
     } else {
       setShowPenSettings(false);
