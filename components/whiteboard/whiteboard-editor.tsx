@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { useSocket } from "@/hooks/use-socket"
 import { nanoid } from "nanoid"
 import { useTheme } from "next-themes"
@@ -12,6 +12,19 @@ import { cn } from "@/lib/utils"
 import axios from "axios"
 import { Textarea } from "@/components/ui/textarea"
 import { ResizableHandle, ResizablePanel } from "@/components/ui/resizable"
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { jsPDF } from "jspdf"
 
 interface Point {
   x: number
@@ -96,7 +109,12 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   // Clipboard state for copy/paste
   const [clipboardShapes, setClipboardShapes] = useState<Shape[]>([])
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null)
-
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"png" | "pdf">("png");
+  const [exportFileName, setExportFileName] = useState("whiteboard-export");
+  const [isExporting, setIsExporting] = useState(false);
+  const [includeBackground, setIncludeBackground] = useState(true);
+  
   // Initialize canvas context
   const getContext = useCallback(() => {
     if (canvasRef.current) {
@@ -2468,6 +2486,108 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     }
   }, [multiSelectedShapes, getShapeBounds, panOffset, shapes, id, instanceId, socket, saveCanvasState, addToHistory, handleCopy]);
 
+  // Function to handle exporting the whiteboard
+  const handleExport = useCallback(() => {
+    setShowExportDialog(true);
+  }, []);
+  
+  // Function to perform the actual export
+  const performExport = useCallback(async () => {
+    if (!canvasRef.current) return;
+    
+    try {
+      setIsExporting(true);
+      
+      const canvas = canvasRef.current;
+      
+      // Create a temporary canvas with white background
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+      
+      // Fill with white background
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // If includeBackground is true, draw a grid pattern
+      if (includeBackground) {
+        // Draw grid pattern
+        const gridSize = 25;
+        const gridColor = 'rgba(0, 0, 0, 0.1)';
+        
+        tempCtx.strokeStyle = gridColor;
+        tempCtx.lineWidth = 1;
+        
+        // Draw vertical lines
+        for (let x = 0; x <= tempCanvas.width; x += gridSize) {
+          tempCtx.beginPath();
+          tempCtx.moveTo(x, 0);
+          tempCtx.lineTo(x, tempCanvas.height);
+          tempCtx.stroke();
+        }
+        
+        // Draw horizontal lines
+        for (let y = 0; y <= tempCanvas.height; y += gridSize) {
+          tempCtx.beginPath();
+          tempCtx.moveTo(0, y);
+          tempCtx.lineTo(tempCanvas.width, y);
+          tempCtx.stroke();
+        }
+      }
+      
+      // Draw the original canvas content
+      tempCtx.drawImage(canvas, 0, 0);
+      
+      if (exportFormat === "png") {
+        // Export as PNG
+        const dataUrl = tempCanvas.toDataURL('image/png');
+        
+        // Create a download link
+        const link = document.createElement('a');
+        link.download = `${exportFileName || 'whiteboard-export'}.png`;
+        link.href = dataUrl;
+        link.click();
+      } else if (exportFormat === "pdf") {
+        // Export as PDF
+        const imgData = tempCanvas.toDataURL('image/png');
+        
+        // Calculate PDF dimensions (convert pixels to mm at 72 DPI)
+        // Add a small margin to ensure content isn't cut off
+        const margin = 10; // 10mm margin
+        const pdfWidth = (tempCanvas.width * 0.264583) + (margin * 2);
+        const pdfHeight = (tempCanvas.height * 0.264583) + (margin * 2);
+        
+        const pdf = new jsPDF({
+          orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+          unit: 'mm',
+          format: [pdfWidth, pdfHeight]
+        });
+        
+        // Add the image with margins
+        pdf.addImage(
+          imgData, 
+          'PNG', 
+          margin, // x position with margin
+          margin, // y position with margin
+          tempCanvas.width * 0.264583, // width in mm
+          tempCanvas.height * 0.264583 // height in mm
+        );
+        
+        pdf.save(`${exportFileName || 'whiteboard-export'}.pdf`);
+      }
+      
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error("Error exporting whiteboard:", error);
+      alert("Failed to export whiteboard. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [canvasRef, exportFormat, exportFileName, includeBackground]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar
@@ -2485,7 +2605,88 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         canRedo={canRedo}
         strokeStyle={strokeStyle}
         setStrokeStyle={setStrokeStyle}
+        onExport={handleExport}
       />
+      
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={(open) => {
+        if (!isExporting) {
+          setShowExportDialog(open);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Export Whiteboard</DialogTitle>
+            <DialogDescription>
+              Choose a format to export your whiteboard.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="filename">File Name</Label>
+              <input
+                id="filename"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={exportFileName}
+                onChange={(e) => setExportFileName(e.target.value)}
+                placeholder="whiteboard-export"
+                disabled={isExporting}
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label>Export Format</Label>
+              <RadioGroup 
+                value={exportFormat} 
+                onValueChange={(value) => setExportFormat(value as "png" | "pdf")}
+                className="flex flex-col space-y-1"
+                disabled={isExporting}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="png" id="png" disabled={isExporting} />
+                  <Label htmlFor="png">PNG Image</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pdf" id="pdf" disabled={isExporting} />
+                  <Label htmlFor="pdf">PDF Document</Label>
+                </div>
+              </RadioGroup>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="include-background"
+                checked={includeBackground}
+                onChange={(e) => setIncludeBackground(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                disabled={isExporting}
+              />
+              <Label htmlFor="include-background">Include grid background</Label>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExportDialog(false)} disabled={isExporting}>
+              Cancel
+            </Button>
+            <Button onClick={performExport} disabled={isExporting}>
+              {isExporting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                "Export"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Copy/Paste Status Indicator */}
       {clipboardShapes.length > 0 && (

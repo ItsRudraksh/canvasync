@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -32,6 +32,7 @@ interface WhiteboardToolbarProps {
   canRedo?: boolean
   strokeStyle: string
   setStrokeStyle: (style: string) => void
+  onExport?: () => void
 }
 
 const tools = [
@@ -79,6 +80,7 @@ export function WhiteboardToolbar({
   canRedo = false,
   strokeStyle,
   setStrokeStyle,
+  onExport,
 }: WhiteboardToolbarProps) {
   const [showPenSettings, setShowPenSettings] = useState(false);
 
@@ -152,6 +154,23 @@ export function WhiteboardToolbar({
               </TooltipTrigger>
               <TooltipContent side="right">
                 <p>Redo</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {/* Export Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onExport}
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Export</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Export</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
