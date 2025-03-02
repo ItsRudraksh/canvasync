@@ -33,6 +33,7 @@ interface WhiteboardToolbarProps {
   strokeStyle: string
   setStrokeStyle: (style: string) => void
   onExport?: () => void
+  showExportInToolbar?: boolean
 }
 
 const tools = [
@@ -81,6 +82,7 @@ export function WhiteboardToolbar({
   strokeStyle,
   setStrokeStyle,
   onExport,
+  showExportInToolbar = true,
 }: WhiteboardToolbarProps) {
   const [showPenSettings, setShowPenSettings] = useState(false);
 
@@ -157,22 +159,24 @@ export function WhiteboardToolbar({
               </TooltipContent>
             </Tooltip>
             
-            {/* Export Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onExport}
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="sr-only">Export</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Export</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Export Button - conditionally rendered */}
+            {showExportInToolbar && onExport && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={onExport}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="sr-only">Export</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Export</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </TooltipProvider>
         </div>
         

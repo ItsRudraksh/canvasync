@@ -65,9 +65,18 @@ interface WhiteboardEditorProps {
         email: string
       }
     | undefined
+  onExportClick?: () => void
+  showExportInToolbar?: boolean
 }
 
-export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: WhiteboardEditorProps) {
+export function WhiteboardEditor({ 
+  id, 
+  initialData, 
+  isReadOnly, 
+  currentUser, 
+  onExportClick,
+  showExportInToolbar = true
+}: WhiteboardEditorProps) {
   const { socket } = useSocket()
   const { resolvedTheme } = useTheme()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -2489,7 +2498,19 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
   // Function to handle exporting the whiteboard
   const handleExport = useCallback(() => {
     setShowExportDialog(true);
-  }, []);
+    
+    // If onExportClick is provided, call it as well
+    if (onExportClick) {
+      onExportClick();
+    }
+  }, [onExportClick]);
+  
+  // Register the export function with the window object
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).__setExportFunction) {
+      (window as any).__setExportFunction(handleExport);
+    }
+  }, [handleExport]);
   
   // Function to perform the actual export
   const performExport = useCallback(async () => {
@@ -2588,6 +2609,13 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
     }
   }, [canvasRef, exportFormat, exportFileName, includeBackground]);
 
+  // Expose the export function to the parent component if onExportClick is provided
+  useEffect(() => {
+    if (onExportClick) {
+      onExportClick = handleExport;
+    }
+  }, [onExportClick, handleExport]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar
@@ -2606,6 +2634,7 @@ export function WhiteboardEditor({ id, initialData, isReadOnly, currentUser }: W
         strokeStyle={strokeStyle}
         setStrokeStyle={setStrokeStyle}
         onExport={handleExport}
+        showExportInToolbar={showExportInToolbar}
       />
       
       {/* Export Dialog */}

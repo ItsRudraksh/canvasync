@@ -5,6 +5,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { HeaderMenuWrapper } from "@/components/whiteboard/header-menu-wrapper"
+
+// Extend the session type to include the id property
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    }
+  }
+}
 
 export default async function SharedWhiteboardPage({
   params,
@@ -64,6 +77,13 @@ export default async function SharedWhiteboardPage({
     (whiteboard.userId === session.user.id ||
       whiteboard.collaborators.some((c) => c.userId === session.user.id && c.canEdit))
 
+  // Create a user object that matches the expected type if session exists
+  const currentUser = session?.user ? {
+    id: session.user.id,
+    name: session.user.name || "Anonymous",
+    email: session.user.email || "anonymous@example.com"
+  } : undefined;
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
@@ -71,26 +91,29 @@ export default async function SharedWhiteboardPage({
           <h1 className="text-lg font-semibold">{whiteboard.title}</h1>
           <p className="text-sm text-muted-foreground">Created by {whiteboard.user.name}</p>
         </div>
-        {session && canEdit && (
-          <Link href={`/whiteboard/${whiteboard.id}`}>
-            <Button>Edit Whiteboard</Button>
-          </Link>
-        )}
-        {!session && (
-          <Link href="/auth/login">
-            <Button variant="outline">Login</Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-4">
+          {session && canEdit && (
+            <Link href={`/whiteboard/${whiteboard.id}`}>
+              <Button>Edit Whiteboard</Button>
+            </Link>
+          )}
+          {!session && (
+            <Link href="/auth/login">
+              <Button variant="outline">Login</Button>
+            </Link>
+          )}
+          <HeaderMenuWrapper />
+        </div>
       </header>
       <main className="flex-1">
         <WhiteboardEditor
           id={whiteboard.id}
           initialData={whiteboard.content}
           isReadOnly={!canEdit}
-          currentUser={session?.user}
+          currentUser={currentUser}
+          showExportInToolbar={false}
         />
       </main>
     </div>
   )
-}
-
+} 

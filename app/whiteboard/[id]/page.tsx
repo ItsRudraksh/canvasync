@@ -4,11 +4,24 @@ import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { WhiteboardEditor } from "@/components/whiteboard/whiteboard-editor"
 import { ShareButton } from "@/components/whiteboard/share-button"
+import { HeaderMenuWrapper } from "@/components/whiteboard/header-menu-wrapper"
+
+// Extend the session type to include the id property
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    }
+  }
+}
 
 export default async function WhiteboardPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
 
-  if (!session) {
+  if (!session || !session.user) {
     return redirect(`/shared/${params.id}?auth=required`)
   }
 
@@ -30,10 +43,17 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
     return redirect("/")
   }
 
+  // Create a user object that matches the expected type
+  const currentUser = {
+    id: session.user.id,
+    name: session.user.name || "Anonymous",
+    email: session.user.email || "anonymous@example.com"
+  };
+
   // Check if user is owner or collaborator
-  const isOwner = whiteboard.userId === session.user.id
+  const isOwner = whiteboard.userId === currentUser.id
   const isCollaborator = whiteboard.collaborators.some(
-    (collaborator) => collaborator.userId === session.user.id && collaborator.canEdit,
+    (collaborator) => collaborator.userId === currentUser.id && collaborator.canEdit,
   )
 
   // If not owner or collaborator with edit access, redirect to view-only
@@ -47,6 +67,7 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
         <h1 className="text-lg font-semibold">{whiteboard.title}</h1>
         <div className="flex items-center gap-4">
           {(isOwner || isCollaborator) && <ShareButton whiteboardId={whiteboard.id} />}
+          <HeaderMenuWrapper />
         </div>
       </header>
       <main className="flex-1">
@@ -54,10 +75,10 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
           id={whiteboard.id}
           initialData={whiteboard.content}
           isReadOnly={false}
-          currentUser={session.user}
+          currentUser={currentUser}
+          showExportInToolbar={false}
         />
       </main>
     </div>
   )
-}
-
+} 
