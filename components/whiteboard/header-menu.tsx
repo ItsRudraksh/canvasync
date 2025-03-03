@@ -27,7 +27,10 @@ export function HeaderMenu({ onExport }: HeaderMenuProps) {
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Options</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onExport}>
+        <DropdownMenuItem 
+          onClick={onExport}
+          className="hidden stage-3"
+        >
           Export Whiteboard
         </DropdownMenuItem>
       </DropdownMenuContent>

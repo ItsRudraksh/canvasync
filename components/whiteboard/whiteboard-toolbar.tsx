@@ -36,18 +36,34 @@ interface WhiteboardToolbarProps {
   showExportInToolbar?: boolean
 }
 
-const tools = [
+// Stage 1 tools - Basic drawing functionality
+const stage1Tools = [
   { id: "select", icon: MousePointer, label: "Select" },
-  { id: "area-select", icon: SquareMousePointer, label: "Area Select" },
-  { id: "hand", icon: Hand, label: "Hand (Pan)" },
   { id: "pen", icon: Pencil, label: "Pen" },
-  { id: "text", icon: Type, label: "Text" },
-  { id: "arrow", icon: ArrowRight, label: "Arrow" },
-  { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow" },
   { id: "rectangle", icon: Square, label: "Rectangle" },
   { id: "circle", icon: Circle, label: "Circle" },
-  { id: "diamond", icon: Diamond, label: "Diamond" },
   { id: "eraser", icon: Eraser, label: "Eraser" },
+]
+
+// Stage 2 tools - Intermediate features
+const stage2Tools = [
+  { id: "hand", icon: Hand, label: "Hand (Pan)" },
+  { id: "area-select", icon: SquareMousePointer, label: "Area Select" },
+  { id: "arrow", icon: ArrowRight, label: "Arrow" },
+]
+
+// Stage 3 tools - Advanced features
+const stage3Tools = [
+  { id: "text", icon: Type, label: "Text" },
+  { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow" },
+  { id: "diamond", icon: Diamond, label: "Diamond" },
+]
+
+// Combine all tools for the complete toolbar
+const tools = [
+  ...stage1Tools,
+  ...stage2Tools,
+  ...stage3Tools,
 ]
 
 const colors = [
@@ -103,7 +119,8 @@ export function WhiteboardToolbar({
       <div className="absolute left-4 top-4 flex flex-col gap-4 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
         <div className="flex flex-col gap-2">
           <TooltipProvider>
-            {tools.map((t) => (
+            {/* Stage 1 Tools */}
+            {stage1Tools.map((t) => (
               <Tooltip key={t.id}>
                 <TooltipTrigger asChild>
                   <Button variant={tool === t.id ? "default" : "ghost"} size="icon" onClick={() => setTool(t.id)}>
@@ -116,10 +133,50 @@ export function WhiteboardToolbar({
                 </TooltipContent>
               </Tooltip>
             ))}
+            
+            {/* Stage 2 Tools - Hidden in Stage 1 */}
+            {stage2Tools.map((t) => (
+              <Tooltip key={t.id}>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={tool === t.id ? "default" : "ghost"} 
+                    size="icon" 
+                    onClick={() => setTool(t.id)}
+                    className="hidden stage-2" // Hidden in Stage 1, will be shown in Stage 2
+                  >
+                    <t.icon className="h-4 w-4" />
+                    <span className="sr-only">{t.label}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{t.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            
+            {/* Stage 3 Tools - Hidden in Stages 1 and 2 */}
+            {stage3Tools.map((t) => (
+              <Tooltip key={t.id}>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={tool === t.id ? "default" : "ghost"} 
+                    size="icon" 
+                    onClick={() => setTool(t.id)}
+                    className="hidden stage-3" // Hidden in Stages 1 and 2, will be shown in Stage 3
+                  >
+                    <t.icon className="h-4 w-4" />
+                    <span className="sr-only">{t.label}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{t.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
           </TooltipProvider>
         </div>
         
-        {/* Undo/Redo buttons */}
+        {/* Undo/Redo buttons - Stage 1 */}
         <div className="h-px bg-border" />
         <div className="flex flex-col gap-2">
           <TooltipProvider>
@@ -159,7 +216,7 @@ export function WhiteboardToolbar({
               </TooltipContent>
             </Tooltip>
             
-            {/* Export Button - conditionally rendered */}
+            {/* Export Button - Stage 3 feature */}
             {showExportInToolbar && onExport && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -167,6 +224,7 @@ export function WhiteboardToolbar({
                     variant="ghost" 
                     size="icon" 
                     onClick={onExport}
+                    className="hidden stage-3" // Hidden in Stages 1 and 2, will be shown in Stage 3
                   >
                     <Download className="h-4 w-4" />
                     <span className="sr-only">Export</span>
@@ -208,7 +266,7 @@ export function WhiteboardToolbar({
         </AlertDialog>
       </div>
 
-      {/* Pen Settings Box */}
+      {/* Pen Settings Box - Stage 1 for basic settings, Stage 3 for advanced settings */}
       {showPenSettings && (
         <div className="absolute right-4 top-4 rounded-lg border bg-zinc-800/90 p-4 shadow-lg backdrop-blur">
           <div className="mb-4">
@@ -230,9 +288,9 @@ export function WhiteboardToolbar({
             </div>
           </div>
 
-          {/* Stroke Style Selector - Only show for shapes that can have different stroke styles */}
+          {/* Stroke Style Selector - Stage 3 feature */}
           {tool !== "text" && tool !== "eraser" && (
-            <div className="mb-4">
+            <div className="mb-4 hidden stage-3"> {/* Hidden in Stages 1 and 2, will be shown in Stage 3 */}
               <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
               <div className="flex gap-2">
                 {strokeStyles.map((style) => (
@@ -248,15 +306,10 @@ export function WhiteboardToolbar({
                         style={{ 
                           backgroundImage: style.id === "solid" 
                             ? "none" 
-                            : style.id === "dashed" 
-                              ? "linear-gradient(to right, currentColor 10px, transparent 5px)" 
-                              : "linear-gradient(to right, currentColor 2px, transparent 4px)",
-                          backgroundSize: style.id === "solid" 
-                            ? "auto" 
-                            : style.id === "dashed" 
-                              ? "15px 100%" 
-                              : "6px 100%",
-                          backgroundRepeat: "repeat-x"
+                            : style.id === "dashed"
+                            ? "linear-gradient(to right, currentColor 50%, transparent 50%)"
+                            : "linear-gradient(to right, currentColor 20%, transparent 20%)",
+                          backgroundSize: style.id === "dashed" ? "20px 100%" : "8px 100%"
                         }}
                       />
                     </div>
@@ -267,34 +320,15 @@ export function WhiteboardToolbar({
           )}
 
           <div>
-            <h3 className="text-sm font-medium mb-2">
-              {tool === "text" ? "Font Size" : "Stroke Width"}: {width}px
-            </h3>
-            <div className="flex items-center gap-4">
-              <div 
-                className="h-8 w-8 rounded-full border border-zinc-600 flex items-center justify-center"
-                style={{ backgroundColor: color }}
-              >
-                <div 
-                  className="rounded-full"
-                  style={{ 
-                    width: `${Math.min(width * 1.5, 24)}px`, 
-                    height: `${Math.min(width * 1.5, 24)}px`,
-                    backgroundColor: color
-                  }}
-                />
-              </div>
-              <div className="w-48">
-                <Slider
-                  min={1}
-                  max={20}
-                  step={1}
-                  value={[width]}
-                  onValueChange={(value) => setWidth(value[0])}
-                  className="w-full"
-                />
-              </div>
-            </div>
+            <h3 className="text-sm font-medium mb-2">Width</h3>
+            <Slider
+              value={[width]}
+              min={1}
+              max={20}
+              step={1}
+              onValueChange={(value) => setWidth(value[0])}
+              className="w-full"
+            />
           </div>
         </div>
       )}

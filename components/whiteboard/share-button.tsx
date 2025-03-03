@@ -114,9 +114,9 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen} className="hidden stage-2">
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon">
+        <Button variant="outline" size="icon" className="hidden stage-2">
           <Share className="h-4 w-4" />
           <span className="sr-only">Share</span>
         </Button>
@@ -132,7 +132,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
             <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
           </TabsList>
           <TabsContent value="link" className="space-y-4 py-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 hidden stage-3">
               <Switch id="public" checked={isPublic} onCheckedChange={handleTogglePublic} disabled={isLoading} />
               <Label htmlFor="public">Make whiteboard public</Label>
             </div>

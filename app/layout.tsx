@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { SessionProvider } from "@/components/session-provider"
 import { SocketProvider } from "@/hooks/use-socket"
+import { StageSelector } from "@/components/stage-selector"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,6 +27,7 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <SocketProvider>
+              <StageSelector />
               {children}
               <Toaster />
             </SocketProvider>

@@ -3253,7 +3253,13 @@ export function WhiteboardEditor({
         onDoubleClick={handleDoubleClick}
       />
       {Object.entries(cursors).map(([clientId, cursor]) => (
-        <UserCursor key={clientId} x={cursor.x} y={cursor.y} name={cursor.user.name} />
+        <UserCursor 
+          key={clientId} 
+          x={cursor.x} 
+          y={cursor.y} 
+          name={cursor.user.name} 
+          className="hidden stage-2" // Hidden in Stage 1, will be shown in Stage 2
+        />
       ))}
     </div>
   )
