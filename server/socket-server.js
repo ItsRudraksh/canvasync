@@ -28,9 +28,12 @@ function getUserCounts(whiteboardId) {
   let viewers = 0
 
   whiteboard.forEach((userData) => {
+    // If user has edit access (owner or collaborator), count as collaborator
     if (userData.canEdit) {
       collaborators++
-    } else {
+    } 
+    // If user doesn't have edit access, count as viewer
+    else {
       viewers++
     }
   })
@@ -49,7 +52,7 @@ io.on("connection", (socket) => {
 
   // Join whiteboard room
   socket.on("join-whiteboard", async ({ whiteboardId, instanceId, user, canEdit }) => {
-    console.log(`User ${user.name} (${instanceId}) joined whiteboard ${whiteboardId}`)
+    console.log(`User ${user.name} (${instanceId}) joined whiteboard ${whiteboardId} with ${canEdit ? 'edit' : 'view'} access`)
 
     socket.join(whiteboardId)
 
@@ -65,10 +68,12 @@ io.on("connection", (socket) => {
 
     const whiteboard = whiteboards.get(whiteboardId)
 
-    // Remove any existing connections for this instance
-    if (whiteboard.has(instanceId)) {
-      whiteboard.delete(instanceId)
-    }
+    // Remove any existing connections for this instance/user
+    whiteboard.forEach((userData, existingInstanceId) => {
+      if (userData.user.id === user.id) {
+        whiteboard.delete(existingInstanceId)
+      }
+    })
 
     // Add user to whiteboard
     whiteboard.set(instanceId, {
@@ -90,6 +95,8 @@ io.on("connection", (socket) => {
       canEdit,
       counts,
     })
+
+    console.log(`Current counts for whiteboard ${whiteboardId}:`, counts)
   })
 
   // Handle drawing events
@@ -208,18 +215,22 @@ io.on("connection", (socket) => {
     whiteboards.forEach((whiteboard, whiteboardId) => {
       let userRemoved = false
       let removedInstanceId = null
+      let removedUserData = null
 
       whiteboard.forEach((userData, instanceId) => {
         if (userData.socketId === socket.id) {
           whiteboard.delete(instanceId)
           userRemoved = true
           removedInstanceId = instanceId
+          removedUserData = userData
         }
       })
 
       if (userRemoved) {
         // Get updated counts
         const counts = getUserCounts(whiteboardId)
+
+        console.log(`User ${removedUserData.user.name} left whiteboard ${whiteboardId}. New counts:`, counts)
 
         // Notify others in the room
         io.to(whiteboardId).emit("user-left", {
@@ -231,6 +242,7 @@ io.on("connection", (socket) => {
         if (whiteboard.size === 0) {
           whiteboards.delete(whiteboardId)
           whiteboardShapes.delete(whiteboardId)
+          console.log(`Whiteboard ${whiteboardId} cleaned up - no active users`)
         }
       }
     })
@@ -240,10 +252,15 @@ io.on("connection", (socket) => {
   socket.on("leave-whiteboard", ({ whiteboardId, instanceId }) => {
     const whiteboard = whiteboards.get(whiteboardId)
     if (whiteboard) {
+      const userData = whiteboard.get(instanceId)
       whiteboard.delete(instanceId)
 
       // Get updated counts
       const counts = getUserCounts(whiteboardId)
+
+      if (userData) {
+        console.log(`User ${userData.user.name} left whiteboard ${whiteboardId}. New counts:`, counts)
+      }
 
       // Notify others in the room
       socket.to(whiteboardId).emit("user-left", {
@@ -255,6 +272,7 @@ io.on("connection", (socket) => {
       if (whiteboard.size === 0) {
         whiteboards.delete(whiteboardId)
         whiteboardShapes.delete(whiteboardId)
+        console.log(`Whiteboard ${whiteboardId} cleaned up - no active users`)
       }
     }
 
