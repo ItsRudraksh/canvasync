@@ -52,6 +52,8 @@ interface Shape {
   textHeight?: number
   controlPoint?: Point  // Control point for curved arrows
   strokeStyle?: string  // For solid, dashed, or dotted lines
+  fillStyle?: string    // For transparent or solid fill
+  fillOpacity?: number  // For solid fill opacity (0-1)
 }
 
 interface WhiteboardEditorProps {
@@ -361,7 +363,6 @@ export function WhiteboardEditor({
       }
       
       ctx.strokeStyle = shape.color
-      ctx.fillStyle = shape.color
       ctx.lineWidth = shape.width
       ctx.lineCap = "round"
       ctx.lineJoin = "round"
@@ -391,6 +392,77 @@ export function WhiteboardEditor({
       }
 
       switch (shape.tool) {
+        case "rectangle":
+          if (shape.points.length >= 2) {
+            const start = shape.points[0];
+            const end = shape.points[shape.points.length - 1];
+            const width = end.x - start.x;
+            const height = end.y - start.y;
+            
+            ctx.beginPath();
+            ctx.rect(start.x, start.y, width, height);
+            
+            // Handle fill if specified
+            if (shape.fillStyle === "solid") {
+              ctx.fillStyle = shape.color;
+              const currentAlpha = ctx.globalAlpha;
+              ctx.globalAlpha = currentAlpha * (shape.fillOpacity || 0.5);
+              ctx.fill();
+              ctx.globalAlpha = currentAlpha;
+            }
+            
+            ctx.stroke();
+          }
+          break;
+
+        case "diamond":
+          if (shape.points.length >= 2) {
+            const start = shape.points[0];
+            const end = shape.points[shape.points.length - 1];
+            const width = end.x - start.x;
+            const height = end.y - start.y;
+            
+            ctx.beginPath();
+            ctx.moveTo(start.x + width/2, start.y); // Top point
+            ctx.lineTo(start.x + width, start.y + height/2); // Right point
+            ctx.lineTo(start.x + width/2, start.y + height); // Bottom point
+            ctx.lineTo(start.x, start.y + height/2); // Left point
+            ctx.closePath();
+            
+            // Handle fill if specified
+            if (shape.fillStyle === "solid") {
+              ctx.fillStyle = shape.color;
+              const currentAlpha = ctx.globalAlpha;
+              ctx.globalAlpha = currentAlpha * (shape.fillOpacity || 0.5);
+              ctx.fill();
+              ctx.globalAlpha = currentAlpha;
+            }
+            
+            ctx.stroke();
+          }
+          break;
+
+        case "circle":
+          if (shape.points.length >= 2) {
+            const start = shape.points[0];
+            const end = shape.points[shape.points.length - 1];
+            const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+            ctx.beginPath();
+            ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
+            
+            // Handle fill if specified
+            if (shape.fillStyle === "solid") {
+              ctx.fillStyle = shape.color;
+              const currentAlpha = ctx.globalAlpha;
+              ctx.globalAlpha = currentAlpha * (shape.fillOpacity || 0.5);
+              ctx.fill();
+              ctx.globalAlpha = currentAlpha;
+            }
+            
+            ctx.stroke();
+          }
+          break;
+
         case "pen":
           ctx.beginPath()
           shape.points.forEach((point, index) => {
@@ -436,45 +508,6 @@ export function WhiteboardEditor({
           }
           break
 
-        case "rectangle":
-          if (shape.points.length >= 2) {
-            const start = shape.points[0];
-            const end = shape.points[shape.points.length - 1];
-            const width = end.x - start.x;
-            const height = end.y - start.y;
-            ctx.strokeRect(start.x, start.y, width, height);
-          }
-          break
-
-        case "diamond":
-          if (shape.points.length >= 2) {
-            const start = shape.points[0];
-            const end = shape.points[shape.points.length - 1];
-            const width = end.x - start.x;
-            const height = end.y - start.y;
-            
-            // Draw diamond shape
-            ctx.beginPath();
-            ctx.moveTo(start.x + width/2, start.y); // Top point
-            ctx.lineTo(start.x + width, start.y + height/2); // Right point
-            ctx.lineTo(start.x + width/2, start.y + height); // Bottom point
-            ctx.lineTo(start.x, start.y + height/2); // Left point
-            ctx.closePath();
-            ctx.stroke();
-          }
-          break
-
-        case "circle":
-          if (shape.points.length >= 2) {
-            const start = shape.points[0];
-            const end = shape.points[shape.points.length - 1];
-            const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-            ctx.beginPath();
-            ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
-            ctx.stroke();
-          }
-          break
-        
         case "text":
           if (shape.points.length > 0 && shape.text) {
             const point = shape.points[0];
@@ -1907,6 +1940,11 @@ export function WhiteboardEditor({
         width,
         strokeStyle,
         selected: false,
+        // Only add fill properties in stage-3
+        ...(document.body.classList.contains("app-stage-3") ? {
+          fillStyle: "transparent",
+          fillOpacity: undefined,
+        } : {}),
         ...(tool === "curved-arrow" ? {
           controlPoint: {
             x: x,
@@ -2236,55 +2274,47 @@ export function WhiteboardEditor({
       }
     })
     
-    socket.on("shape-updated", ({ instanceId: remoteId, shape, shapes: remoteShapes }: { instanceId: string, shape: Shape | null, shapes: Shape[] }) => {
+    socket.on("shape-updated", ({ instanceId: remoteId, shape: remoteShape, shapes: remoteShapes }: { instanceId: string, shape: Shape | null, shapes: Shape[] }) => {
       if (remoteId !== instanceId) {
-        console.log("Remote shape updated:", shape);
-        
-        // Handle text shapes specially to ensure text property is preserved
-        if (shape && shape.tool === "text") {
-          console.log("Remote text shape updated:", shape.text);
-        }
+        console.log("Remote shape update");
         
         // Update shapes with the remote shapes
         setShapes(remoteShapes);
         
-        // Update selected shape if it's the same as the remote shape
-        if (selectedShape && shape && selectedShape.id === shape.id) {
-          setSelectedShape(shape);
-        } else if (!shape) {
-          // If shape is null, it means deselection
+        // Update selected shape if it was modified
+        if (selectedShape && remoteShape && remoteShape.id === selectedShape.id) {
+          setSelectedShape(remoteShape);
+        }
+        
+        // Clear selection if the selected shape was deleted
+        if (selectedShape && !remoteShapes.some(s => s.id === selectedShape.id)) {
           setSelectedShape(null);
         }
         
-        // Clear multi-selected shapes if they've been modified by another user
-        if (multiSelectedShapes.length > 0) {
-          // Check if any of our multi-selected shapes are no longer multi-selected in remote shapes
-          const stillMultiSelected = multiSelectedShapes.every(ms => 
-            remoteShapes.some(rs => rs.id === ms.id && rs.multiSelected)
-          );
-          
-          if (!stillMultiSelected) {
-            setMultiSelectedShapes([]);
-          }
-        }
+        // Save canvas state
+        saveCanvasState(remoteShapes);
         
         // Force redraw
         redrawCanvas();
       }
-    })
+    });
     
     socket.on("shape-update-ended", ({ instanceId: remoteId, shapes: remoteShapes }: { instanceId: string, shapes: Shape[] }) => {
       if (remoteId !== instanceId) {
         console.log("Remote shape update ended");
         
-        // Check if any text shapes were updated
-        const textShapes = remoteShapes.filter(shape => shape.tool === "text");
-        if (textShapes.length > 0) {
-          console.log("Remote text shapes updated:", textShapes.length);
-        }
-        
         // Update shapes with the final remote shapes
         setShapes(remoteShapes);
+        
+        // Update selected shape if it still exists
+        if (selectedShape) {
+          const updatedSelectedShape = remoteShapes.find(s => s.id === selectedShape.id);
+          if (updatedSelectedShape) {
+            setSelectedShape(updatedSelectedShape);
+          } else {
+            setSelectedShape(null);
+          }
+        }
         
         // Clear multi-selected shapes if they've been modified by another user
         if (multiSelectedShapes.length > 0) {
@@ -2839,26 +2869,88 @@ export function WhiteboardEditor({
           
           {/* Color picker - only show for non-eraser tools */}
           {selectedShape.tool !== "eraser" && (
-            <div>
+            <div className="mb-3">
               <label className="text-xs text-zinc-400 mb-1 block">Color</label>
-              <div className="flex flex-wrap gap-1 mb-3">
-                {["#FFFFFF", "#FF4444", "#44FF44", "#4444FF", "#FFFF44", "#FF44FF", "#44FFFF"].map((c) => (
+              <div className="flex gap-1">
+                {[
+                  { color: "#000000", label: "Black" },
+                  { color: "#ff0000", label: "Red" },
+                  { color: "#00ff00", label: "Green" },
+                  { color: "#0000ff", label: "Blue" },
+                  { color: "#ffff00", label: "Yellow" },
+                  { color: "#ff00ff", label: "Magenta" },
+                  { color: "#00ffff", label: "Cyan" }
+                ].map((c) => (
                   <button
-                    key={c}
-                    className="h-6 w-6 rounded-full p-0 flex items-center justify-center border border-zinc-700 hover:border-white transition-colors"
-                    style={{ backgroundColor: c }}
+                    key={c.color}
+                    className={`w-6 h-6 rounded-full border-2 ${
+                      selectedShape.color === c.color 
+                        ? "border-white" 
+                        : "border-transparent hover:border-zinc-400"
+                    }`}
+                    style={{ backgroundColor: c.color }}
                     onClick={() => {
                       // Update the selected shape's color
                       const updatedShapes = shapes.map(shape => {
                         if (shape.id === selectedShape.id) {
-                          // For eraser, always keep the background color
-                          if (shape.tool === "eraser") {
-                            return shape;
-                          }
-                          
                           return {
                             ...shape,
-                            color: c
+                            color: c.color
+                          };
+                        }
+                        return shape;
+                      });
+                      
+                      setShapes(updatedShapes);
+                      
+                      // Update the selected shape
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        
+                        // Emit socket event for shape update
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        
+                        // Save canvas state
+                        saveCanvasState(updatedShapes);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Fill style controls - only show for shapes that can be filled */}
+          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
+            <div className="mb-3 hidden stage-3">
+              <label className="text-xs text-zinc-400 mb-1 block">Fill Style</label>
+              <div className="flex gap-1">
+                {[
+                  { id: "transparent", label: "Transparent", icon: "○" },
+                  { id: "solid", label: "Solid", icon: "●" }
+                ].map((style) => (
+                  <button
+                    key={style.id}
+                    className={`flex-1 py-1 px-2 text-xs rounded flex items-center justify-center gap-1 ${
+                      (selectedShape.fillStyle || "transparent") === style.id 
+                        ? "bg-blue-500 text-white" 
+                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                    }`}
+                    onClick={() => {
+                      // Update the selected shape's fill style
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            fillStyle: style.id,
+                            // Reset opacity when switching to transparent
+                            fillOpacity: style.id === "transparent" ? undefined : (shape.fillOpacity || 0.5)
                           };
                         }
                         return shape;
@@ -2884,9 +2976,62 @@ export function WhiteboardEditor({
                       }
                     }}
                   >
-                    {selectedShape.color === c && <div className="h-3 w-3 rounded-full bg-white" />}
+                    <span>{style.icon}</span>
+                    <span>{style.label}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Fill opacity slider - only show for solid fill */}
+          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && selectedShape.fillStyle === "solid" && (
+            <div className="mb-3 hidden stage-3">
+              <label className="text-xs text-zinc-400 mb-1 block">Fill Opacity: {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={(selectedShape.fillOpacity || 0.5) * 100}
+                  onChange={(e) => {
+                    const newOpacity = parseInt(e.target.value) / 100;
+                    
+                    // Update the selected shape's fill opacity
+                    const updatedShapes = shapes.map(shape => {
+                      if (shape.id === selectedShape.id) {
+                        return {
+                          ...shape,
+                          fillOpacity: newOpacity
+                        };
+                      }
+                      return shape;
+                    });
+                    
+                    setShapes(updatedShapes);
+                    
+                    // Update the selected shape
+                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                    if (updatedSelectedShape) {
+                      setSelectedShape(updatedSelectedShape);
+                      
+                      // Emit socket event for shape update
+                      socket?.emit("shape-update", {
+                        whiteboardId: id,
+                        instanceId,
+                        shape: updatedSelectedShape,
+                        shapes: updatedShapes
+                      });
+                      
+                      // Save canvas state
+                      saveCanvasState(updatedShapes);
+                    }
+                  }}
+                  className="w-full accent-blue-500"
+                />
+                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded">
+                  {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%
+                </div>
               </div>
             </div>
           )}
