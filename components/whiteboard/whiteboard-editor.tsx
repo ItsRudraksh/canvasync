@@ -294,12 +294,19 @@ export function WhiteboardEditor({
     ctx.lineTo(to.x, to.y)
     ctx.stroke()
 
+    // Save current fillStyle and set it to match strokeStyle
+    const currentFillStyle = ctx.fillStyle
+    ctx.fillStyle = ctx.strokeStyle
+
     ctx.beginPath()
     ctx.moveTo(to.x, to.y)
     ctx.lineTo(to.x - headLength * Math.cos(angle - Math.PI / 6), to.y - headLength * Math.sin(angle - Math.PI / 6))
     ctx.lineTo(to.x - headLength * Math.cos(angle + Math.PI / 6), to.y - headLength * Math.sin(angle + Math.PI / 6))
     ctx.closePath()
     ctx.fill()
+
+    // Restore original fillStyle
+    ctx.fillStyle = currentFillStyle
   }, [])
 
   // Draw curved arrow
@@ -313,9 +320,11 @@ export function WhiteboardEditor({
     ctx.stroke()
     
     // Calculate the angle at the end point for the arrow head
-    // We need to find the tangent of the curve at the end point
-    // For a quadratic curve, the tangent at t=1 is from the control point to the end point
     const angle = Math.atan2(to.y - controlPoint.y, to.x - controlPoint.x)
+    
+    // Save current fillStyle and set it to match strokeStyle
+    const currentFillStyle = ctx.fillStyle
+    ctx.fillStyle = ctx.strokeStyle
     
     // Draw the arrow head
     ctx.beginPath()
@@ -324,6 +333,9 @@ export function WhiteboardEditor({
     ctx.lineTo(to.x - headLength * Math.cos(angle + Math.PI / 6), to.y - headLength * Math.sin(angle + Math.PI / 6))
     ctx.closePath()
     ctx.fill()
+
+    // Restore original fillStyle
+    ctx.fillStyle = currentFillStyle
     
     // Only show control point and guide lines when selected
     if (isSelected) {
