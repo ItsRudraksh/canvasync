@@ -50,6 +50,7 @@
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
     "express": "latest",
+    "framer-motion": "^12.4.7",
     "fs": "^0.0.1-security",
     "http": "latest",
     "input-otp": "1.4.1",

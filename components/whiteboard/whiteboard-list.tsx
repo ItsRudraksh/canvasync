@@ -5,7 +5,7 @@ import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { Edit, Trash2, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
 import { ShareButton } from "./share-button"
+import { Whiteboard } from "@prisma/client"
 
 interface WhiteboardListProps {
-  whiteboards: any[]
+  whiteboards: Whiteboard[]
 }
 
 export function WhiteboardList({ whiteboards }: WhiteboardListProps) {
@@ -53,59 +54,37 @@ export function WhiteboardList({ whiteboards }: WhiteboardListProps) {
 
   if (whiteboards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <h3 className="text-lg font-medium">No whiteboards found</h3>
-        <p className="text-muted-foreground mt-1">Create your first whiteboard to get started</p>
-        <Link href="/whiteboard/new" className="mt-4">
-          <Button>Create Whiteboard</Button>
-        </Link>
+      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+        <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
+          <h2 className="mt-6 text-xl font-semibold">No whiteboards created</h2>
+          <p className="mb-8 mt-2 text-center text-sm font-normal leading-6 text-muted-foreground">
+            You haven&apos;t created any whiteboards yet. Create your first whiteboard to get started.
+          </p>
+          <Link
+            href="/whiteboard/new"
+            className="relative inline-flex h-9 items-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            Create a Whiteboard
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {whiteboards.map((whiteboard) => (
-          <Card key={whiteboard.id} className="flex flex-col">
-            <CardContent className="flex-1 p-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">{whiteboard.title}</h3>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/whiteboard/${whiteboard.id}`}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setDeleteId(whiteboard.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
-              </p>
-            </CardContent>
-            <CardFooter className="flex justify-between p-6 pt-0">
-              <Button variant="outline" asChild>
-                <Link href={`/whiteboard/${whiteboard.id}`}>Open</Link>
-              </Button>
-              <ShareButton whiteboardId={whiteboard.id} />
-            </CardFooter>
-          </Card>
+          <Link key={whiteboard.id} href={`/whiteboard/${whiteboard.id}`}>
+            <Card className="hover:bg-muted/50 transition-colors">
+              <CardHeader>
+                <CardTitle>{whiteboard.title}</CardTitle>
+                <CardDescription>
+                  Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
 
