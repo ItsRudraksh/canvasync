@@ -4,6 +4,25 @@ import { compare } from "bcryptjs"
 import { db } from "@/lib/db"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      avatar?: string | null
+    }
+  }
+  
+  interface JWT {
+    id: string
+    name?: string | null
+    email?: string | null
+    avatar?: string | null
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   providers: [
@@ -20,6 +39,13 @@ export const authOptions: NextAuthOptions = {
 
         const user = await db.user.findUnique({
           where: { email: credentials.email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+            avatar: true,
+          },
         })
 
         if (!user) {
@@ -36,6 +62,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar,
         }
       },
     }),
@@ -53,6 +80,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.name = user.name
         token.email = user.email
+        token.avatar = user.avatar
       }
       return token
     },
@@ -61,6 +89,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.name = token.name
         session.user.email = token.email
+        session.user.avatar = token.avatar as string | null
       }
       return session
     },

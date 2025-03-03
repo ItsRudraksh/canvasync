@@ -36,7 +36,15 @@ export function UserButton() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session.user?.image || "/placeholder-user.jpg"} alt={session.user?.name || "User"} />
+            <AvatarImage 
+              src={session.user?.avatar || ""} 
+              alt={session.user?.name || "User"} 
+              className="object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
         </Button>
@@ -50,13 +58,13 @@ export function UserButton() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/profile">
+          <Link href="/profile" className="flex items-center">
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/settings">
+          <Link href="/settings" className="flex items-center">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </Link>
