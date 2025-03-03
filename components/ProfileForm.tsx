@@ -83,26 +83,31 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         body: formData,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload avatar");
+        throw new Error(data.error || "Failed to upload avatar");
       }
 
-      const data = await response.json();
       console.log("Upload successful:", data);
       
       // Update the avatar URL in state
-      setAvatarUrl(data.avatarUrl);
+      if (data.avatarUrl) {
+        setAvatarUrl(data.avatarUrl);
+        toast.success("Avatar updated successfully");
+      } else {
+        throw new Error("No avatar URL received");
+      }
       
       // Reset the file input
       if (e.target) {
         e.target.value = "";
       }
 
-      toast.success("Avatar updated successfully");
     } catch (error) {
       console.error("Upload error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to upload avatar");
+      setAvatarUrl(null); // Reset to fallback on error
     } finally {
       setIsLoading(false);
     }
@@ -121,10 +126,16 @@ export default function ProfileForm({ user }: ProfileFormProps) {
             <AvatarImage 
               src={avatarUrl} 
               alt={user.name}
-              className="object-cover"
+              className="object-cover w-full h-full"
+              onError={(e) => {
+                console.error('Error loading avatar:', e);
+                const target = e.target as HTMLImageElement;
+                target.src = ''; // Clear the errored image
+                setAvatarUrl(null); // Reset to fallback
+              }}
             />
           ) : (
-            <AvatarFallback>
+            <AvatarFallback className="text-2xl">
               {user.name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           )}
