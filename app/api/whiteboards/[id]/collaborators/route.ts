@@ -142,3 +142,55 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 }
 
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = params
+    const url = new URL(req.url)
+    const collaboratorId = url.searchParams.get("collaboratorId")
+    const body = await req.json()
+    const { canEdit } = body
+
+    if (!collaboratorId) {
+      return NextResponse.json({ message: "Collaborator ID is required" }, { status: 400 })
+    }
+
+    // Check if user is owner
+    const whiteboard = await db.whiteboard.findUnique({
+      where: { id },
+    })
+
+    if (!whiteboard) {
+      return NextResponse.json({ message: "Whiteboard not found" }, { status: 404 })
+    }
+
+    if (whiteboard.userId !== session.user.id) {
+      return NextResponse.json({ message: "Only the owner can update collaborator permissions" }, { status: 401 })
+    }
+
+    // Update collaborator permissions
+    const updatedCollaborator = await db.collaborator.update({
+      where: { id: collaboratorId },
+      data: { canEdit },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(updatedCollaborator)
+  } catch (error) {
+    return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
+  }
+}
+

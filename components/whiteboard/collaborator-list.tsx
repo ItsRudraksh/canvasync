@@ -78,6 +78,44 @@ export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
     }
   }
 
+  const handleTogglePermission = async (collaboratorId: string, currentCanEdit: boolean) => {
+    try {
+      const response = await fetch(
+        `/api/whiteboards/${whiteboardId}/collaborators?collaboratorId=${collaboratorId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            canEdit: !currentCanEdit,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to update collaborator permissions")
+      }
+
+      const updatedCollaborator = await response.json()
+      setCollaborators((prev) =>
+        prev.map((c) => (c.id === collaboratorId ? updatedCollaborator : c))
+      )
+
+      toast({
+        title: "Permissions updated",
+        description: `Collaborator is now ${!currentCanEdit ? "an editor" : "a viewer"}`,
+      })
+    } catch (error) {
+      console.error("Error updating collaborator permissions:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update collaborator permissions",
+        variant: "destructive",
+      })
+    }
+  }
+
   if (isLoading) {
     return <div className="text-center py-4">Loading collaborators...</div>
   }
@@ -97,9 +135,13 @@ export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
               <p className="text-sm text-muted-foreground">{collaborator.user.email}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={collaborator.canEdit ? "default" : "secondary"}>
-                {collaborator.canEdit ? "Editor" : "Viewer"}
-              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTogglePermission(collaborator.id, collaborator.canEdit)}
+              >
+                {collaborator.canEdit ? "Make Viewer" : "Make Editor"}
+              </Button>
               <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collaborator.id)}>
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Remove</span>
