@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { Share } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Share, Globe, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,6 +32,21 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [collaboratorEmail, setCollaboratorEmail] = useState("")
   const [canEdit, setCanEdit] = useState(false)
+
+  // Fetch initial whiteboard state
+  useEffect(() => {
+    const fetchWhiteboard = async () => {
+      try {
+        const response = await fetch(`/api/whiteboards/${whiteboardId}`)
+        if (!response.ok) throw new Error("Failed to fetch whiteboard")
+        const data = await response.json()
+        setIsPublic(data.isPublic)
+      } catch (error) {
+        console.error("Error fetching whiteboard:", error)
+      }
+    }
+    fetchWhiteboard()
+  }, [whiteboardId])
 
   const shareLink = typeof window !== "undefined" ? `${window.location.origin}/shared/${whiteboardId}` : ""
 
@@ -63,6 +78,9 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
       setIsPublic(!isPublic)
       toast({
         title: isPublic ? "Whiteboard is now private" : "Whiteboard is now public",
+        description: isPublic
+          ? "Only collaborators can access this whiteboard"
+          : "Anyone with the link can view this whiteboard",
       })
     } catch (error) {
       console.error("Error updating whiteboard:", error)
@@ -101,7 +119,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
         description: `${collaboratorEmail} has been added as a collaborator`,
       })
       setCollaboratorEmail("")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding collaborator:", error)
       toast({
         title: "Error",
@@ -116,7 +134,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon" className="hidden stage-2">
+        <Button variant="outline" size="icon">
           <Share className="h-4 w-4" />
           <span className="sr-only">Share</span>
         </Button>
@@ -132,9 +150,22 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
             <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
           </TabsList>
           <TabsContent value="link" className="space-y-4 py-4">
-            <div className="flex items-center space-x-2 hidden stage-3">
-              <Switch id="public" checked={isPublic} onCheckedChange={handleTogglePublic} disabled={isLoading} />
-              <Label htmlFor="public">Make whiteboard public</Label>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label className="text-base">Public Access</Label>
+                <p className="text-sm text-muted-foreground">
+                  {isPublic
+                    ? "Anyone with the link can view this whiteboard"
+                    : "Only collaborators can access this whiteboard"}
+                </p>
+              </div>
+              <Switch
+                id="public"
+                checked={isPublic}
+                onCheckedChange={handleTogglePublic}
+                disabled={isLoading}
+                className="data-[state=checked]:bg-primary"
+              />
             </div>
             <div className="flex items-center space-x-2">
               <Input value={shareLink} readOnly className="flex-1" />
@@ -142,11 +173,18 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
                 Copy
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {isPublic
-                ? "Anyone with the link can view this whiteboard"
-                : "Only collaborators can access this whiteboard"}
-            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isPublic ? (
+                <Globe className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              <span>
+                {isPublic
+                  ? "Anyone with the link can view this whiteboard"
+                  : "Only collaborators can access this whiteboard"}
+              </span>
+            </div>
           </TabsContent>
           <TabsContent value="collaborators" className="py-4">
             <form onSubmit={handleAddCollaborator} className="space-y-4">

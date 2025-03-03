@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
-import { Edit, Trash2, MoreHorizontal } from "lucide-react"
+import { Edit, Trash2, MoreHorizontal, Lock, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
 import { ShareButton } from "./share-button"
-import { Whiteboard } from "@prisma/client"
+import { Whiteboard, User } from "@prisma/client"
 
 interface WhiteboardListProps {
-  whiteboards: Whiteboard[]
+  whiteboards: (Whiteboard & { user: Pick<User, "name"> })[]
+  showOwner?: boolean
 }
 
-export function WhiteboardList({ whiteboards }: WhiteboardListProps) {
+export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -56,16 +57,20 @@ export function WhiteboardList({ whiteboards }: WhiteboardListProps) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
         <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
-          <h2 className="mt-6 text-xl font-semibold">No whiteboards created</h2>
+          <h2 className="mt-6 text-xl font-semibold">No whiteboards found</h2>
           <p className="mb-8 mt-2 text-center text-sm font-normal leading-6 text-muted-foreground">
-            You haven&apos;t created any whiteboards yet. Create your first whiteboard to get started.
+            {showOwner
+              ? "There are no public whiteboards available at the moment."
+              : "You haven&apos;t created any whiteboards yet. Create your first whiteboard to get started."}
           </p>
-          <Link
-            href="/whiteboard/new"
-            className="relative inline-flex h-9 items-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          >
-            Create a Whiteboard
-          </Link>
+          {!showOwner && (
+            <Link
+              href="/whiteboard/new"
+              className="relative inline-flex h-9 items-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              Create a Whiteboard
+            </Link>
+          )}
         </div>
       </div>
     )
@@ -75,16 +80,57 @@ export function WhiteboardList({ whiteboards }: WhiteboardListProps) {
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {whiteboards.map((whiteboard) => (
-          <Link key={whiteboard.id} href={`/whiteboard/${whiteboard.id}`}>
-            <Card className="hover:bg-muted/50 transition-colors">
-              <CardHeader>
-                <CardTitle>{whiteboard.title}</CardTitle>
-                <CardDescription>
-                  Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+          <Card key={whiteboard.id} className="hover:bg-muted/50 transition-colors">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    {whiteboard.title}
+                    {whiteboard.isPublic ? (
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
+                    {showOwner && ` • By ${whiteboard.user.name}`}
+                  </CardDescription>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <Link href={`/whiteboard/${whiteboard.id}`}>
+                      <DropdownMenuItem>Open</DropdownMenuItem>
+                    </Link>
+                    {!showOwner && (
+                      <>
+                        <Link href={`/whiteboard/${whiteboard.id}/edit`}>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                        </Link>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteId(whiteboard.id)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </CardHeader>
+            {!showOwner && (
+              <CardFooter>
+                <ShareButton whiteboardId={whiteboard.id} />
+              </CardFooter>
+            )}
+          </Card>
         ))}
       </div>
 

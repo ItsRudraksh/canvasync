@@ -61,6 +61,9 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
     return redirect(`/shared/${params.id}`)
   }
 
+  // Determine if the whiteboard should be read-only
+  const isReadOnly = !isOwner && !isCollaborator && whiteboard.isPublic
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
@@ -74,7 +77,7 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
         <WhiteboardEditor
           id={whiteboard.id}
           initialData={whiteboard.content}
-          isReadOnly={false}
+          isReadOnly={isReadOnly}
           currentUser={currentUser}
           showExportInToolbar={false}
         />

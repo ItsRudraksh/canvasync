@@ -7,6 +7,7 @@ import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { PlusCircle } from "lucide-react"
 import { WhiteboardList } from "@/components/whiteboard/whiteboard-list"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions)
@@ -15,23 +16,50 @@ export default async function Dashboard() {
     return redirect("/auth/login")
   }
 
-  const whiteboards = await db.whiteboard.findMany({
-    where: {
-      OR: [
-        { userId: session.user.id },
-        {
-          collaborators: {
-            some: {
-              userId: session.user.id,
+  const [myWhiteboards, publicWhiteboards] = await Promise.all([
+    db.whiteboard.findMany({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          {
+            collaborators: {
+              some: {
+                userId: session.user.id,
+              },
             },
           },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
         },
-      ],
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-  })
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }),
+    db.whiteboard.findMany({
+      where: {
+        isPublic: true,
+        NOT: {
+          userId: session.user.id,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }),
+  ])
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -53,9 +81,18 @@ export default async function Dashboard() {
             </Button>
           </Link>
         </div>
-        <div className="mt-8">
-          <WhiteboardList whiteboards={whiteboards} />
-        </div>
+        <Tabs defaultValue="my-whiteboards" className="mt-8">
+          <TabsList>
+            <TabsTrigger value="my-whiteboards">My Whiteboards</TabsTrigger>
+            <TabsTrigger value="public-whiteboards">Public Whiteboards</TabsTrigger>
+          </TabsList>
+          <TabsContent value="my-whiteboards">
+            <WhiteboardList whiteboards={myWhiteboards} showOwner={false} />
+          </TabsContent>
+          <TabsContent value="public-whiteboards">
+            <WhiteboardList whiteboards={publicWhiteboards} showOwner={true} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
