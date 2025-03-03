@@ -27,7 +27,7 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <SocketProvider>
-              <StageSelector />
+              {/* <StageSelector /> */}
               {children}
               <Toaster />
             </SocketProvider>
