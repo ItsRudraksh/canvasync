@@ -290,17 +290,24 @@ export function WhiteboardToolbar({
 
           {/* Stroke Style Selector - Stage 3 feature */}
           {tool !== "text" && tool !== "eraser" && (
-            <div className="mb-4 hidden stage-3"> {/* Hidden in Stages 1 and 2, will be shown in Stage 3 */}
+            <div className="mb-4"> {/* Hidden in Stages 1 and 2, will be shown in Stage 3 */}
               <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
               <div className="flex gap-2">
-                {strokeStyles.map((style) => (
-                  <Button
+                {[
+                  { id: "solid", label: "Solid" },
+                  { id: "dashed", label: "Dashed" },
+                  { id: "dotted", label: "Dotted" }
+                ].map((style) => (
+                  <button
                     key={style.id}
-                    variant={strokeStyle === style.id ? "default" : "outline"}
-                    className="flex-1 h-8"
+                    className={`flex-1 py-1 px-2 rounded ${
+                      (strokeStyle || "solid") === style.id 
+                        ? "bg-blue-500 text-white" 
+                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                    }`}
                     onClick={() => setStrokeStyle(style.id)}
                   >
-                    <div className="w-full flex items-center justify-center">
+                    <div className="flex items-center justify-center">
                       <div 
                         className="w-full h-1 bg-current"
                         style={{ 
@@ -313,7 +320,7 @@ export function WhiteboardToolbar({
                         }}
                       />
                     </div>
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
