@@ -2928,66 +2928,85 @@ export function WhiteboardEditor({
 
           {/* Fill style controls - only show for shapes that can be filled */}
           {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
-            <div className="mb-3 hidden stage-3">
-              <label className="text-xs text-zinc-400 mb-1 block">Fill Style</label>
-              <div className="flex gap-1">
-                {[
-                  { id: "transparent", label: "Transparent", icon: "○" },
-                  { id: "solid", label: "Solid", icon: "●" }
-                ].map((style) => (
-                  <button
-                    key={style.id}
-                    className={`flex-1 py-1 px-2 text-xs rounded flex items-center justify-center gap-1 ${
-                      (selectedShape.fillStyle || "transparent") === style.id 
-                        ? "bg-blue-500 text-white" 
-                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-                    }`}
-                    onClick={() => {
-                      // Update the selected shape's fill style
-                      const updatedShapes = shapes.map(shape => {
-                        if (shape.id === selectedShape.id) {
-                          return {
-                            ...shape,
-                            fillStyle: style.id,
-                            // Reset opacity when switching to transparent
-                            fillOpacity: style.id === "transparent" ? undefined : (shape.fillOpacity || 0.5)
-                          };
-                        }
-                        return shape;
-                      });
-                      
-                      setShapes(updatedShapes);
-                      
-                      // Update the selected shape
-                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                      if (updatedSelectedShape) {
-                        setSelectedShape(updatedSelectedShape);
-                        
-                        // Emit socket event for shape update
-                        socket?.emit("shape-update", {
-                          whiteboardId: id,
-                          instanceId,
-                          shape: updatedSelectedShape,
-                          shapes: updatedShapes
-                        });
-                        
-                        // Save canvas state
-                        saveCanvasState(updatedShapes);
+            <div className=" flex flex-col mb-3 hidden stage-3">
+              <label className="text-xs text-zinc-400 block mb-2">Fill Style</label>
+              <div className="flex gap-2">
+                <button
+                  className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
+                    (selectedShape.fillStyle || "transparent") === "transparent"
+                      ? "bg-blue-500 text-white" 
+                      : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                  }`}
+                  onClick={() => {
+                    const updatedShapes = shapes.map(shape => {
+                      if (shape.id === selectedShape.id) {
+                        return {
+                          ...shape,
+                          fillStyle: "transparent",
+                          fillOpacity: undefined
+                        };
                       }
-                    }}
-                  >
-                    <span>{style.icon}</span>
-                    <span>{style.label}</span>
-                  </button>
-                ))}
+                      return shape;
+                    });
+                    setShapes(updatedShapes);
+                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                    if (updatedSelectedShape) {
+                      setSelectedShape(updatedSelectedShape);
+                      socket?.emit("shape-update", {
+                        whiteboardId: id,
+                        instanceId,
+                        shape: updatedSelectedShape,
+                        shapes: updatedShapes
+                      });
+                      saveCanvasState(updatedShapes);
+                    }
+                  }}
+                >
+                  <span>○</span>
+                  <span>Transparent</span>
+                </button>
+                <button
+                  className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
+                    selectedShape.fillStyle === "solid"
+                      ? "bg-blue-500 text-white" 
+                      : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                  }`}
+                  onClick={() => {
+                    const updatedShapes = shapes.map(shape => {
+                      if (shape.id === selectedShape.id) {
+                        return {
+                          ...shape,
+                          fillStyle: "solid",
+                          fillOpacity: 0.5
+                        };
+                      }
+                      return shape;
+                    });
+                    setShapes(updatedShapes);
+                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                    if (updatedSelectedShape) {
+                      setSelectedShape(updatedSelectedShape);
+                      socket?.emit("shape-update", {
+                        whiteboardId: id,
+                        instanceId,
+                        shape: updatedSelectedShape,
+                        shapes: updatedShapes
+                      });
+                      saveCanvasState(updatedShapes);
+                    }
+                  }}
+                >
+                  <span>●</span>
+                  <span>Solid</span>
+                </button>
               </div>
             </div>
           )}
 
           {/* Fill opacity slider - only show for solid fill */}
           {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && selectedShape.fillStyle === "solid" && (
-            <div className="mb-3 hidden stage-3">
-              <label className="text-xs text-zinc-400 mb-1 block">Fill Opacity: {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%</label>
+            <div className="flex flex-col mb-3 hidden stage-3">
+              <label className="text-xs text-zinc-400 block mb-2">Fill Opacity</label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -2996,8 +3015,6 @@ export function WhiteboardEditor({
                   value={(selectedShape.fillOpacity || 0.5) * 100}
                   onChange={(e) => {
                     const newOpacity = parseInt(e.target.value) / 100;
-                    
-                    // Update the selected shape's fill opacity
                     const updatedShapes = shapes.map(shape => {
                       if (shape.id === selectedShape.id) {
                         return {
@@ -3007,29 +3024,22 @@ export function WhiteboardEditor({
                       }
                       return shape;
                     });
-                    
                     setShapes(updatedShapes);
-                    
-                    // Update the selected shape
                     const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
                     if (updatedSelectedShape) {
                       setSelectedShape(updatedSelectedShape);
-                      
-                      // Emit socket event for shape update
                       socket?.emit("shape-update", {
                         whiteboardId: id,
                         instanceId,
                         shape: updatedSelectedShape,
                         shapes: updatedShapes
                       });
-                      
-                      // Save canvas state
                       saveCanvasState(updatedShapes);
                     }
                   }}
-                  className="w-full accent-blue-500"
+                  className="flex-1 accent-blue-500"
                 />
-                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded">
+                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded min-w-[48px] text-center">
                   {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%
                 </div>
               </div>
