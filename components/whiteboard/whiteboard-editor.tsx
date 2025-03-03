@@ -664,6 +664,44 @@ export function WhiteboardEditor({
     const newPoints = [...shape.points];
     
     switch (shape.tool) {
+      case "pen":
+        // For pen drawings, we need to scale all points relative to the shape's center
+        const bounds = getShapeBounds(shape);
+        const centerX = (bounds.x1 + bounds.x2) / 2;
+        const centerY = (bounds.y1 + bounds.y2) / 2;
+        
+        // Calculate scale factors based on the handle and movement
+        let scaleX = 1;
+        let scaleY = 1;
+        
+        switch (handle) {
+          case "tl":
+            scaleX = (bounds.x2 - bounds.x1 - dx) / (bounds.x2 - bounds.x1);
+            scaleY = (bounds.y2 - bounds.y1 - dy) / (bounds.y2 - bounds.y1);
+            break;
+          case "tr":
+            scaleX = (bounds.x2 - bounds.x1 + dx) / (bounds.x2 - bounds.x1);
+            scaleY = (bounds.y2 - bounds.y1 - dy) / (bounds.y2 - bounds.y1);
+            break;
+          case "bl":
+            scaleX = (bounds.x2 - bounds.x1 - dx) / (bounds.x2 - bounds.x1);
+            scaleY = (bounds.y2 - bounds.y1 + dy) / (bounds.y2 - bounds.y1);
+            break;
+          case "br":
+            scaleX = (bounds.x2 - bounds.x1 + dx) / (bounds.x2 - bounds.x1);
+            scaleY = (bounds.y2 - bounds.y1 + dy) / (bounds.y2 - bounds.y1);
+            break;
+        }
+        
+        // Apply scaling to all points
+        newPoints.forEach(point => {
+          const relativeX = point.x - centerX;
+          const relativeY = point.y - centerY;
+          point.x = centerX + relativeX * scaleX;
+          point.y = centerY + relativeY * scaleY;
+        });
+        break;
+        
       case "rectangle":
         if (shape.points.length >= 2) {
           const start = {...shape.points[0]};
