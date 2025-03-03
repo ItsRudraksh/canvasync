@@ -528,6 +528,7 @@ export function WhiteboardEditor({
             // Use a handwriting-like font
             ctx.font = `${fontSize}px 'Segoe Print', 'Comic Sans MS', cursive`;
             ctx.textBaseline = "top";
+            ctx.fillStyle = shape.color;
             
             // If the shape is being edited, don't render it (the textarea will show instead)
             if (shape.isEditing) {
