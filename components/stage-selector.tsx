@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select"
 
 export function StageSelector() {
-  const [stage, setStage] = useState("1")
+  const [stage, setStage] = useState("2")
   
   // Apply the stage class to the document body
   useEffect(() => {

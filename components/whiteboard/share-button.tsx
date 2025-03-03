@@ -114,7 +114,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen} className="hidden stage-2">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="icon" className="hidden stage-2">
           <Share className="h-4 w-4" />
