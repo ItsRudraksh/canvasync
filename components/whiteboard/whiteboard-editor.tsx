@@ -2616,6 +2616,51 @@ export function WhiteboardEditor({
     }
   }, [onExportClick, handleExport]);
 
+  useEffect(() => {
+    if (socket && currentUser) {
+      // Join the whiteboard room
+      socket.emit("join-whiteboard", {
+        whiteboardId: id,
+        instanceId,
+        user: {
+          name: currentUser.name,
+          id: currentUser.id,
+        },
+        canEdit: !isReadOnly,
+      })
+
+      // Handle cursor movement
+      const handlePointerMove = (e: PointerEvent) => {
+        if (!canvasRef.current) return
+
+        const rect = canvasRef.current.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+
+        socket.emit("cursor-move", {
+          whiteboardId: id,
+          instanceId,
+          x,
+          y,
+          user: {
+            name: currentUser.name,
+            id: currentUser.id,
+          },
+        })
+      }
+
+      canvasRef.current?.addEventListener("pointermove", handlePointerMove)
+
+      return () => {
+        canvasRef.current?.removeEventListener("pointermove", handlePointerMove)
+        socket.emit("leave-whiteboard", {
+          whiteboardId: id,
+          instanceId,
+        })
+      }
+    }
+  }, [socket, id, instanceId, currentUser, isReadOnly])
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar

@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { WhiteboardEditor } from "@/components/whiteboard/whiteboard-editor"
 import { ShareButton } from "@/components/whiteboard/share-button"
 import { HeaderMenuWrapper } from "@/components/whiteboard/header-menu-wrapper"
+import { UserCounts } from "@/components/whiteboard/user-counts"
 
 // Extend the session type to include the id property
 declare module "next-auth" {
@@ -67,7 +68,17 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
   return (
     <div className="flex h-screen flex-col">
       <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
-        <h1 className="text-lg font-semibold">{whiteboard.title}</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold">{whiteboard.title}</h1>
+          <UserCounts 
+            whiteboardId={whiteboard.id} 
+            canEdit={isOwner || isCollaborator} 
+            currentUser={{
+              id: currentUser.id,
+              name: currentUser.name,
+            }}
+          />
+        </div>
         <div className="flex items-center gap-4">
           {(isOwner || isCollaborator) && <ShareButton whiteboardId={whiteboard.id} />}
           <HeaderMenuWrapper />
