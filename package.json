@@ -12,6 +12,7 @@
   "dependencies": {
     "@auth/core": "latest",
     "@auth/prisma-adapter": "latest",
+    "@aws-sdk/client-s3": "^3.758.0",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "latest",
     "@radix-ui/react-accordion": "^1.2.2",
