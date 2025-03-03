@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { jsPDF } from "jspdf"
+import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
+import { FaMinus  } from "react-icons/fa"
 
 interface Point {
   x: number
@@ -70,6 +72,12 @@ interface WhiteboardEditorProps {
   onExportClick?: () => void
   showExportInToolbar?: boolean
 }
+
+const strokeStyles = [
+  { id: "solid", label: "Solid", Icon: FaMinus },
+  { id: "dashed", label: "Dashed", Icon: TbLineDashed },
+  { id: "dotted", label: "Dotted", Icon: TbLineDotted },
+]
 
 export function WhiteboardEditor({ 
   id, 
@@ -3064,14 +3072,10 @@ export function WhiteboardEditor({
             <div className="mb-3">
               <label className="text-xs text-zinc-400 mb-1 block">Stroke Style</label>
               <div className="flex gap-1">
-                {[
-                  { id: "solid", label: "Solid" },
-                  { id: "dashed", label: "Dashed" },
-                  { id: "dotted", label: "Dotted" }
-                ].map((style) => (
+                {strokeStyles.map((style) => (
                   <button
                     key={style.id}
-                    className={`flex-1 py-1 px-2 text-xs rounded ${
+                    className={`flex-1 py-2 px-2 text-xs rounded ${
                       (selectedShape.strokeStyle || "solid") === style.id 
                         ? "bg-blue-500 text-white" 
                         : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
@@ -3109,22 +3113,7 @@ export function WhiteboardEditor({
                     }}
                   >
                     <div className="flex items-center justify-center">
-                      <div 
-                        className="w-full h-1 bg-current"
-                        style={{ 
-                          backgroundImage: style.id === "solid" 
-                            ? "none" 
-                            : style.id === "dashed" 
-                              ? "linear-gradient(to right, currentColor 10px, transparent 5px)" 
-                              : "linear-gradient(to right, currentColor 2px, transparent 4px)",
-                          backgroundSize: style.id === "solid" 
-                            ? "auto" 
-                            : style.id === "dashed" 
-                              ? "15px 100%" 
-                              : "6px 100%",
-                          backgroundRepeat: "repeat-x"
-                        }}
-                      />
+                      <style.Icon className="text-2xl" />
                     </div>
                   </button>
                 ))}

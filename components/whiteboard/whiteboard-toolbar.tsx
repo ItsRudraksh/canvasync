@@ -1,6 +1,8 @@
 "use client"
 
 import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond, Download } from "lucide-react"
+import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
+import { FaMinus  } from "react-icons/fa"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -77,9 +79,9 @@ const colors = [
 ]
 
 const strokeStyles = [
-  { id: "solid", label: "Solid", dashArray: [] },
-  { id: "dashed", label: "Dashed", dashArray: [10, 5] },
-  { id: "dotted", label: "Dotted", dashArray: [2, 4] },
+  { id: "solid", label: "Solid", Icon: FaMinus  },
+  { id: "dashed", label: "Dashed", Icon: TbLineDashed },
+  { id: "dotted", label: "Dotted", Icon: TbLineDotted },
 ]
 
 export function WhiteboardToolbar({
@@ -290,17 +292,13 @@ export function WhiteboardToolbar({
 
           {/* Stroke Style Selector - Stage 3 feature */}
           {tool !== "text" && tool !== "eraser" && (
-            <div className="mb-4"> {/* Hidden in Stages 1 and 2, will be shown in Stage 3 */}
+            <div className="mb-4">
               <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
               <div className="flex gap-2">
-                {[
-                  { id: "solid", label: "Solid" },
-                  { id: "dashed", label: "Dashed" },
-                  { id: "dotted", label: "Dotted" }
-                ].map((style) => (
+                {strokeStyles.map((style) => (
                   <button
                     key={style.id}
-                    className={`flex-1 py-1 px-2 rounded ${
+                    className={`flex-1 py-2 px-2 rounded ${
                       (strokeStyle || "solid") === style.id 
                         ? "bg-blue-500 text-white" 
                         : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
@@ -308,17 +306,7 @@ export function WhiteboardToolbar({
                     onClick={() => setStrokeStyle(style.id)}
                   >
                     <div className="flex items-center justify-center">
-                      <div 
-                        className="w-full h-1 bg-current"
-                        style={{ 
-                          backgroundImage: style.id === "solid" 
-                            ? "none" 
-                            : style.id === "dashed"
-                            ? "linear-gradient(to right, currentColor 50%, transparent 50%)"
-                            : "linear-gradient(to right, currentColor 20%, transparent 20%)",
-                          backgroundSize: style.id === "dashed" ? "20px 100%" : "8px 100%"
-                        }}
-                      />
+                      <style.Icon className="text-2xl" />
                     </div>
                   </button>
                 ))}
