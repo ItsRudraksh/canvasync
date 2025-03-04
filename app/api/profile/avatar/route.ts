@@ -23,27 +23,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File must be an image" }, { status: 400 });
     }
 
+    // Get the current user with their avatar
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    });
+
     // Convert File to Buffer
     const buffer = Buffer.from(await file.arrayBuffer());
     
     console.log("Uploading file to S3:", {
       fileName: file.name,
       fileType: file.type,
-      fileSize: file.size
+      fileSize: file.size,
+      previousAvatar: currentUser?.avatar
     });
 
-    // Upload to S3
-    const avatarUrl = await uploadToS3(buffer, file.name, file.type);
+    // Upload to S3 and delete previous avatar if it exists
+    const avatarUrl = await uploadToS3(
+      buffer, 
+      file.name, 
+      file.type,
+      currentUser?.avatar
+    );
+    
     console.log("File uploaded successfully to:", avatarUrl);
 
     // Update user's avatar in database
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
-      data: { avatar: avatarUrl },
-      select: {
-        id: true,
-        avatar: true
-      }
+      data: { avatar: avatarUrl }
     });
 
     console.log("User avatar updated in database:", updatedUser);

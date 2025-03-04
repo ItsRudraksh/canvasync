@@ -14,7 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 
-export function UserButton() {
+interface UserButtonProps {
+  customAvatarUrl?: string | null;
+}
+
+export function UserButton({ customAvatarUrl }: UserButtonProps) {
   const { data: session } = useSession()
 
   if (!session) {
@@ -31,13 +35,16 @@ export function UserButton() {
     .join("")
     .toUpperCase()
 
+  // Use customAvatarUrl if provided, otherwise fall back to session avatar
+  const avatarUrl = customAvatarUrl ?? session.user?.avatar
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
             <AvatarImage 
-              src={session.user?.avatar || ""} 
+              src={avatarUrl || ""} 
               alt={session.user?.name || "User"} 
               className="object-cover"
               onError={(e) => {

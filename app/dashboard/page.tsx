@@ -16,6 +16,12 @@ export default async function Dashboard() {
     return redirect("/auth/login")
   }
 
+  // Get current user with avatar
+  const currentUser = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { avatar: true }
+  });
+
   const [myWhiteboards, publicWhiteboards] = await Promise.all([
     db.whiteboard.findMany({
       where: {
@@ -68,7 +74,7 @@ export default async function Dashboard() {
           <span className="text-xl font-bold">Whiteboard</span>
         </Link>
         <div className="ml-auto flex items-center gap-4">
-          <UserButton />
+          <UserButton customAvatarUrl={currentUser?.avatar} />
         </div>
       </header>
       <main className="flex-1 p-4 md:p-6">
