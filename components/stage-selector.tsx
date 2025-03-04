@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select"
 
 export function StageSelector() {
-  const [stage, setStage] = useState("2")
+  const [stage, setStage] = useState("3")
   
   // Apply the stage class to the document body
   useEffect(() => {
@@ -34,7 +34,7 @@ export function StageSelector() {
   }, [])
   
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border bg-background p-2 shadow-lg">
+    <div className="hidden fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border bg-background p-2 shadow-lg">
       <span className="text-xs font-medium">App Stage:</span>
       <Select value={stage} onValueChange={setStage}>
         <SelectTrigger className="h-8 w-24">
