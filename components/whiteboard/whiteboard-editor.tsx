@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label"
 import { jsPDF } from "jspdf"
 import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
 import { FaMinus  } from "react-icons/fa"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Point {
   x: number
@@ -71,6 +72,7 @@ interface WhiteboardEditorProps {
     | undefined
   onExportClick?: () => void
   showExportInToolbar?: boolean
+  onClipboardChange?: (count: number, clearFn: () => void) => void
 }
 
 const strokeStyles = [
@@ -85,7 +87,8 @@ export function WhiteboardEditor({
   isReadOnly, 
   currentUser, 
   onExportClick,
-  showExportInToolbar = true
+  showExportInToolbar = true,
+  onClipboardChange
 }: WhiteboardEditorProps) {
   const { socket } = useSocket()
   const { resolvedTheme } = useTheme()
@@ -133,6 +136,7 @@ export function WhiteboardEditor({
   const [exportFileName, setExportFileName] = useState("whiteboard-export");
   const [isExporting, setIsExporting] = useState(false);
   const [includeBackground, setIncludeBackground] = useState(true);
+  const { toast } = useToast()
   
   // Initialize canvas context
   const getContext = useCallback(() => {
@@ -1501,16 +1505,19 @@ export function WhiteboardEditor({
     // Copy selected shape
     if (selectedShape) {
       setClipboardShapes([selectedShape]);
-      console.log("Copied 1 shape to clipboard");
       return;
     }
     
     // Copy multi-selected shapes
     if (multiSelectedShapes.length > 0) {
       setClipboardShapes([...multiSelectedShapes]);
-      console.log(`Copied ${multiSelectedShapes.length} shapes to clipboard`);
     }
   }, [selectedShape, multiSelectedShapes, isReadOnly]);
+
+  // Handle clear clipboard
+  const handleClearClipboard = useCallback(() => {
+    setClipboardShapes([]);
+  }, []);
   
   // Handle paste operation
   const handlePaste = useCallback(() => {
@@ -2750,6 +2757,11 @@ export function WhiteboardEditor({
     }
   }, [socket, id, instanceId, currentUser, isReadOnly])
 
+  // Update clipboard count whenever it changes
+  useEffect(() => {
+    onClipboardChange?.(clipboardShapes.length, handleClearClipboard);
+  }, [clipboardShapes.length, handleClearClipboard, onClipboardChange]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar
@@ -2850,19 +2862,7 @@ export function WhiteboardEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Copy/Paste Status Indicator */}
-      {clipboardShapes.length > 0 && (
-        <div className="absolute left-4 bottom-4 bg-zinc-800/90 text-white text-sm px-3 py-1.5 rounded-md shadow-lg backdrop-blur z-10 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-          </svg>
-          <span>{clipboardShapes.length} {clipboardShapes.length === 1 ? 'shape' : 'shapes'} copied</span>
-          <span className="text-xs text-zinc-400 ml-1">(Ctrl+V to paste)</span>
-        </div>
-      )}
-      
+            
       {/* Property editor for selected shape */}
       {selectedShape && (
         <div className="absolute right-4 top-4 flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-800/90 p-4 shadow-lg backdrop-blur z-10">

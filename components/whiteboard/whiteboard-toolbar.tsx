@@ -118,7 +118,7 @@ export function WhiteboardToolbar({
   return (
     <>
       {/* Main Toolbar */}
-      <div className="absolute left-4 top-4 flex flex-col gap-4 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
+      <div className="absolute left-4 top-4 flex flex-col gap-1 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
         <div className="flex flex-col gap-2">
           <TooltipProvider>
             {/* Stage 1 Tools */}
@@ -217,26 +217,6 @@ export function WhiteboardToolbar({
                 <p>Redo</p>
               </TooltipContent>
             </Tooltip>
-            
-            {/* Export Button - Stage 3 feature */}
-            {showExportInToolbar && onExport && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={onExport}
-                    className="hidden stage-3" // Hidden in Stages 1 and 2, will be shown in Stage 3
-                  >
-                    <Download className="h-4 w-4" />
-                    <span className="sr-only">Export</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Export</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
           </TooltipProvider>
         </div>
         

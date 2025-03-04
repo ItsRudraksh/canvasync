@@ -3,7 +3,12 @@
 import { useRef } from "react"
 import { HeaderMenu } from "./header-menu"
 
-export function HeaderMenuWrapper() {
+interface HeaderMenuWrapperProps {
+  clipboardCount: number
+  onClearClipboard: () => void
+}
+
+export function HeaderMenuWrapper({ clipboardCount, onClearClipboard }: HeaderMenuWrapperProps) {
   const exportFunctionRef = useRef<(() => void) | null>(null);
   
   const handleExportClick = () => {
@@ -22,5 +27,9 @@ export function HeaderMenuWrapper() {
     (window as any).__setExportFunction = setExportFunction;
   }
   
-  return <HeaderMenu onExport={handleExportClick} />;
+  return <HeaderMenu 
+    onExport={handleExportClick} 
+    clipboardCount={clipboardCount} 
+    onClearClipboard={onClearClipboard}
+  />;
 } 

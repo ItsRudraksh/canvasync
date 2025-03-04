@@ -2,22 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
-import { WhiteboardEditor } from "@/components/whiteboard/whiteboard-editor"
-import { ShareButton } from "@/components/whiteboard/share-button"
-import { HeaderMenuWrapper } from "@/components/whiteboard/header-menu-wrapper"
-import { UserCounts } from "@/components/whiteboard/user-counts"
-
-// Extend the session type to include the id property
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    }
-  }
-}
+import { WhiteboardClient } from "@/components/whiteboard/whiteboard-client"
 
 export default async function WhiteboardPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -66,33 +51,12 @@ export default async function WhiteboardPage({ params }: { params: { id: string 
   const isReadOnly = !isOwner && !isCollaborator && whiteboard.isPublic
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold">{whiteboard.title}</h1>
-          <UserCounts 
-            whiteboardId={whiteboard.id} 
-            canEdit={isOwner || isCollaborator} 
-            currentUser={{
-              id: currentUser.id,
-              name: currentUser.name,
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          {(isOwner || isCollaborator) && <ShareButton whiteboardId={whiteboard.id} />}
-          <HeaderMenuWrapper />
-        </div>
-      </header>
-      <main className="flex-1">
-        <WhiteboardEditor
-          id={whiteboard.id}
-          initialData={whiteboard.content}
-          isReadOnly={isReadOnly}
-          currentUser={currentUser}
-          showExportInToolbar={false}
-        />
-      </main>
-    </div>
+    <WhiteboardClient
+      whiteboard={whiteboard}
+      currentUser={currentUser}
+      isOwner={isOwner}
+      isCollaborator={isCollaborator}
+      isReadOnly={isReadOnly}
+    />
   )
 } 
