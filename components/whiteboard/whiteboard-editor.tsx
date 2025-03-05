@@ -1680,6 +1680,27 @@ export function WhiteboardEditor({
       handlePaste();
     }
     
+    // Select All: Ctrl/Cmd+A
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      e.preventDefault();
+      
+      // Select all shapes
+      if (shapes.length > 0) {
+        // Mark all shapes as multi-selected
+        const updatedShapes = shapes.map(shape => ({
+          ...shape,
+          multiSelected: true
+        }));
+        
+        setShapes(updatedShapes);
+        setMultiSelectedShapes(updatedShapes);
+        setSelectedShape(null); // Clear single selection
+        
+        // Save canvas state
+        saveCanvasState(updatedShapes);
+      }
+    }
+    
     // Undo: Ctrl/Cmd+Z
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
       e.preventDefault();

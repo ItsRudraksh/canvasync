@@ -150,7 +150,14 @@ export function WhiteboardToolbar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                  {t.id === "area-select" ? (
+                    <div>
+                      <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                      <p className="text-xs text-muted-foreground">Ctrl+A to select all</p>
+                    </div>
+                  ) : (
+                    <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                  )}
                 </TooltipContent>
               </Tooltip>
             ))}
