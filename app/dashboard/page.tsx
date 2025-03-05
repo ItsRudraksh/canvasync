@@ -71,7 +71,7 @@ export default async function Dashboard() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="text-xl font-bold">Whiteboard</span>
+          <span className="text-xl font-bold">Dashboard</span>
         </Link>
         <div className="ml-auto flex items-center gap-4">
           <UserButton customAvatarUrl={currentUser?.avatar} />

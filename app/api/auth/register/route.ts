@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { db } from "@/lib/db"
 import { z } from "zod"
+import { generateOTP, sendVerificationEmail, storeOTP } from "@/lib/email"
 
 const userSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -29,27 +30,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "User with this email already exists" }, { status: 409 })
     }
 
-    // Hash password
-    const hashedPassword = await hash(password, 10)
+    try {
+      // Generate and store OTP
+      const otp = generateOTP()
+      await storeOTP(email, otp)
 
-    // Create user
-    const user = await db.user.create({
-      data: {
+      // Send verification email
+      await sendVerificationEmail(email, otp)
+
+      // Hash password
+      const hashedPassword = await hash(password, 10)
+
+      // Store user data in session for later use
+      const userData = {
         name,
         email,
-        password: hashedPassword,
-      },
-    })
+        hashedPassword,
+      }
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user
-
-    return NextResponse.json({ user: userWithoutPassword, message: "User created successfully" }, { status: 201 })
+      return NextResponse.json({ 
+        message: "Verification code sent to your email",
+        email,
+        tempId: Buffer.from(JSON.stringify(userData)).toString('base64')
+      }, { status: 200 })
+    } catch (error) {
+      console.error("Error in registration process:", error);
+      throw error; // Re-throw to be caught by outer catch block
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: error.errors[0].message }, { status: 400 })
     }
 
+    console.error("Error in registration route:", error);
     return NextResponse.json({ message: "Something went wrong" }, { status: 500 })
   }
 }

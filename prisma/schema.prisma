@@ -86,3 +86,11 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model Otp {
+  id        String   @id @default(cuid())
+  identifier String   @unique
+  code      String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+

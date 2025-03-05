@@ -19,9 +19,12 @@ export default function RegisterPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
+  const [showOtpInput, setShowOtpInput] = useState(false)
+  const [tempId, setTempId] = useState("")
 
   const validatePassword = (password: string) => {
     const errors = []
@@ -44,6 +47,35 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+
+    if (showOtpInput) {
+      try {
+        const response = await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            otp,
+            tempId,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.message || "Something went wrong")
+        }
+
+        toast.success("Account created successfully!")
+        router.push("/auth/login?registered=true")
+      } catch (error: any) {
+        setError(error.message || "Something went wrong")
+        setIsLoading(false)
+      }
+      return
+    }
 
     // Validate password
     const errors = validatePassword(password)
@@ -73,9 +105,11 @@ export default function RegisterPage() {
         throw new Error(data.message || "Something went wrong")
       }
 
-      toast.success("Account created successfully!")
-      router.push("/auth/login?registered=true")
-    } catch (error) {
+      setTempId(data.tempId)
+      setShowOtpInput(true)
+      toast.success("Verification code sent to your email!")
+      setIsLoading(false)
+    } catch (error: any) {
       setError(error.message || "Something went wrong")
       setIsLoading(false)
     }
@@ -86,7 +120,12 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>Enter your information to create an account</CardDescription>
+          <CardDescription>
+            {showOtpInput 
+              ? "Enter the verification code sent to your email"
+              : "Enter your information to create an account"
+            }
+          </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -96,59 +135,86 @@ export default function RegisterPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                required
-                className={cn(
-                  passwordErrors.length > 0 && "border-red-500 focus-visible:ring-red-500"
-                )}
-              />
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">
-                  Password must contain:
-                </p>
-                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                  <li>At least 8 characters</li>
-                  <li>At least two uppercase letters</li>
-                  <li>At least two lowercase letters</li>
-                  <li>At least two numbers</li>
-                  <li>At least two special characters</li>
-                </ul>
-                {passwordErrors.length > 0 && (
-                  <div className="mt-2">
-                    {passwordErrors.map((error, index) => (
-                      <p key={index} className="text-sm text-red-500">
-                        • {error}
-                      </p>
-                    ))}
+            {!showOtpInput ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input 
+                    id="name" 
+                    placeholder="John Doe" 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    required
+                    className={cn(
+                      passwordErrors.length > 0 && "border-red-500 focus-visible:ring-red-500"
+                    )}
+                  />
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      Password must contain:
+                    </p>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside">
+                      <li>At least 8 characters</li>
+                      <li>At least two uppercase letters</li>
+                      <li>At least two lowercase letters</li>
+                      <li>At least two numbers</li>
+                      <li>At least two special characters</li>
+                    </ul>
+                    {passwordErrors.length > 0 && (
+                      <div className="mt-2">
+                        {passwordErrors.map((error, index) => (
+                          <p key={index} className="text-sm text-red-500">
+                            • {error}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification Code</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  maxLength={6}
+                  pattern="[0-9]{6}"
+                />
               </div>
-            </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Register"}
+              {isLoading 
+                ? (showOtpInput ? "Verifying..." : "Creating account...") 
+                : (showOtpInput ? "Verify Email" : "Register")
+              }
             </Button>
             <div className="text-center text-sm">
               Already have an account?{" "}
