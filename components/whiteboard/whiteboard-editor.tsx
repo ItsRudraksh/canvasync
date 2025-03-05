@@ -26,7 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { jsPDF } from "jspdf"
 import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
-import { FaMinus  } from "react-icons/fa"
+import { FaMinus, FaPlus  } from "react-icons/fa"
 import { useToast } from "@/components/ui/use-toast"
 
 interface Point {
@@ -127,6 +127,9 @@ export function WhiteboardEditor({
   const textEditorContainerRef = useRef<HTMLDivElement>(null)
   const [textEditorSize, setTextEditorSize] = useState({ width: 200, height: 100 })
   const [isResizingTextEditor, setIsResizingTextEditor] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const MIN_ZOOM = 0.1
+  const MAX_ZOOM = 5
   
   // Clipboard state for copy/paste
   const [clipboardShapes, setClipboardShapes] = useState<Shape[]>([])
@@ -138,6 +141,31 @@ export function WhiteboardEditor({
   const [includeBackground, setIncludeBackground] = useState(true);
   const { toast } = useToast()
   
+  const [editingZoom, setEditingZoom] = useState(false);
+  const [zoomInput, setZoomInput] = useState('');
+
+  const handleZoomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setZoomInput(value);
+  };
+
+  const handleZoomInputBlur = () => {
+    const numericValue = parseInt(zoomInput, 10);
+    if (!isNaN(numericValue)) {
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, numericValue / 100));
+      setZoomLevel(newZoom);
+    }
+    setEditingZoom(false);
+  };
+
+  const handleZoomInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setEditingZoom(false);
+    }
+  };
+  
   // Initialize canvas context
   const getContext = useCallback(() => {
     if (canvasRef.current) {
@@ -145,6 +173,60 @@ export function WhiteboardEditor({
     }
     return null
   }, [canvasRef])
+
+  // Helper function to convert screen coordinates to canvas coordinates
+  const screenToCanvasCoordinates = useCallback((screenX: number, screenY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: (screenX - rect.left - panOffset.x) / zoomLevel,
+      y: (screenY - rect.top - panOffset.y) / zoomLevel
+    }
+  }, [panOffset, zoomLevel])
+  
+  const handleZoom = useCallback((delta: number, mouseX: number, mouseY: number) => {
+    setZoomLevel(prevZoom => {
+      // Calculate new zoom level with smoother delta
+      const zoomFactor = delta > 0 ? 1.1 : 0.9;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom * zoomFactor));
+      
+      if (newZoom === prevZoom) return prevZoom; // No change needed if at bounds
+      
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      if (!canvasRect) return newZoom;
+
+      // Calculate mouse position relative to canvas
+      const mousePointX = mouseX - canvasRect.left;
+      const mousePointY = mouseY - canvasRect.top;
+
+      // Calculate new pan offset to keep the mouse point fixed
+      setPanOffset(prev => ({
+        x: mousePointX - ((mousePointX - prev.x) * newZoom) / prevZoom,
+        y: mousePointY - ((mousePointY - prev.y) * newZoom) / prevZoom
+      }));
+
+      return newZoom;
+    });
+  }, [canvasRef]);
+
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1 : -1;
+      handleZoom(delta, e.clientX, e.clientY);
+    }
+  }, [handleZoom]);
+
+  // Add wheel event listener
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (canvas) {
+      canvas.addEventListener('wheel', handleWheel, { passive: false })
+      return () => canvas.removeEventListener('wheel', handleWheel)
+    }
+  }, [handleWheel])
 
   // Helper function to get shape bounds
   const getShapeBounds = useCallback((shape: Shape) => {
@@ -1009,6 +1091,7 @@ export function WhiteboardEditor({
     // Apply pan offset
     ctx.save()
     ctx.translate(panOffset.x, panOffset.y)
+    ctx.scale(zoomLevel, zoomLevel)
 
     // Draw all shapes
     shapes.forEach(drawShape)
@@ -1024,7 +1107,7 @@ export function WhiteboardEditor({
     }
 
     ctx.restore()
-  }, [getContext, drawShape, shapes, currentShape, panOffset, selectionBox, drawSelectionBox])
+  }, [getContext, drawShape, shapes, currentShape, panOffset, selectionBox, drawSelectionBox, zoomLevel])
 
   // Save canvas state to database
   const saveCanvasState = useCallback(
@@ -1641,7 +1724,27 @@ export function WhiteboardEditor({
         addToHistory(updatedShapes);
       }
     }
-  }, [activeTextEditor, handleCopy, handlePaste, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory]);
+
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        handleZoom(1, window.innerWidth / 2, window.innerHeight / 2);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        handleZoom(-1, window.innerWidth / 2, window.innerHeight / 2);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setZoomLevel(1); // Reset to 100%
+        setPanOffset({ x: 0, y: 0 }); // Reset pan offset
+      }
+    }
+  }, [activeTextEditor, handleCopy, handlePaste, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom]);
+
+  // Add keyboard event listener
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Handle double click event
   const handleDoubleClick = useCallback(
@@ -1652,8 +1755,9 @@ export function WhiteboardEditor({
       if (!canvas) return;
       
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left - panOffset.x;
-      const y = e.clientY - rect.top - panOffset.y;
+      // const x = e.clientX - rect.left - panOffset.x;
+      // const y = e.clientY - rect.top - panOffset.y;
+      const { x, y } = screenToCanvasCoordinates(e.clientX, e.clientY);
       
       // Check if double-clicked on an existing text shape
       const clickedShape = shapes.find(shape => {
@@ -1755,8 +1859,9 @@ export function WhiteboardEditor({
       if (!canvas) return
 
       const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left - panOffset.x
-      const y = e.clientY - rect.top - panOffset.y
+      // const x = e.clientX - rect.left - panOffset.x
+      // const y = e.clientY - rect.top - panOffset.y
+      const { x, y } = screenToCanvasCoordinates(e.clientX, e.clientY)
 
       // Handle panning with hand tool - moved up to be handled first
       if (tool === "hand") {
@@ -2009,8 +2114,9 @@ export function WhiteboardEditor({
       if (!canvas) return
 
       const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left - panOffset.x
-      const y = e.clientY - rect.top - panOffset.y
+      // const x = e.clientX - rect.left - panOffset.x
+      // const y = e.clientY - rect.top - panOffset.y
+      const { x, y } = screenToCanvasCoordinates(e.clientX, e.clientY)
       
       // Track cursor position for paste functionality
       setCursorPosition({ x, y })
@@ -2471,20 +2577,6 @@ export function WhiteboardEditor({
     redrawCanvas()
   }, [redrawCanvas, shapes, currentShape, panOffset])
 
-  // Add keyboard event listeners for copy/paste
-  useEffect(() => {
-    // Skip if read-only
-    if (isReadOnly) return;
-    
-    // Add event listener
-    window.addEventListener('keydown', handleKeyDown);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleKeyDown, isReadOnly]);
-
   // Load initial data
   useEffect(() => {
     if (initialData) {
@@ -2772,6 +2864,16 @@ export function WhiteboardEditor({
   useEffect(() => {
     onClipboardChange?.(clipboardShapes.length, handleClearClipboard);
   }, [clipboardShapes.length, handleClearClipboard, onClipboardChange]);
+
+  const handleZoomIn = useCallback(() => {
+    handleZoom(1, window.innerWidth / 2, window.innerHeight / 2)
+    console.log(zoomLevel);
+  }, [handleZoom])
+
+  const handleZoomOut = useCallback(() => {
+    handleZoom(-1, window.innerWidth / 2, window.innerHeight / 2)
+    console.log(zoomLevel);
+  }, [handleZoom])
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
@@ -3512,6 +3614,44 @@ export function WhiteboardEditor({
           className="hidden stage-2" // Hidden in Stage 1, will be shown in Stage 2
         />
       ))}
+
+      <div className="fixed bottom-4 right-4 flex items-center gap-4 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
+        <button 
+          className="hover:bg-zinc-700/90 rounded-md p-1" 
+          onClick={handleZoomIn}
+          disabled={zoomLevel >= MAX_ZOOM}
+        > 
+          <FaPlus className="text-white text-sm"/> 
+        </button>
+        {editingZoom ? (
+          <input
+            type="text"
+            value={zoomInput}
+            onChange={handleZoomInputChange}
+            onBlur={handleZoomInputBlur}
+            onKeyDown={handleZoomInputKeyDown}
+            className="w-12 bg-transparent text-white text-center focus:outline-none"
+            autoFocus
+          />
+        ) : (
+          <span 
+            className="w-12 text-white text-center cursor-pointer" 
+            onClick={() => {
+              setZoomInput(Math.round(zoomLevel * 100).toString());
+              setEditingZoom(true);
+            }}
+          >
+            {Math.round(zoomLevel * 100)}%
+          </span>
+        )}
+        <button 
+          className="hover:bg-zinc-700/90 rounded-md p-1" 
+          onClick={handleZoomOut}
+          disabled={zoomLevel <= MIN_ZOOM}
+        > 
+          <FaMinus className="text-white text-sm"/> 
+        </button>
+      </div>
     </div>
   )
 }
