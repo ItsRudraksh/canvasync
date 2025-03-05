@@ -1680,6 +1680,18 @@ export function WhiteboardEditor({
       handlePaste();
     }
     
+    // Undo: Ctrl/Cmd+Z
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      e.preventDefault();
+      handleUndo();
+    }
+    
+    // Redo: Ctrl/Cmd+R
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+      e.preventDefault();
+      handleRedo();
+    }
+    
     // Delete: Delete key
     if (e.key === 'Delete') {
       e.preventDefault();
@@ -1738,7 +1750,71 @@ export function WhiteboardEditor({
         setPanOffset({ x: 0, y: 0 }); // Reset pan offset
       }
     }
-  }, [activeTextEditor, handleCopy, handlePaste, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom]);
+    
+    // Tool shortcuts (only if not using modifier keys)
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !isReadOnly) {
+      // v for select tool
+      if (e.key === 'v') {
+        e.preventDefault();
+        setTool('select');
+      }
+      // p for pen tool
+      else if (e.key === 'p') {
+        e.preventDefault();
+        setTool('pen');
+      }
+      // e for eraser
+      else if (e.key === 'e') {
+        e.preventDefault();
+        setTool('eraser');
+      }
+      // h for hand tool
+      else if (e.key === 'h') {
+        e.preventDefault();
+        setTool('hand');
+      }
+      // a for area select
+      else if (e.key === 'a') {
+        e.preventDefault();
+        setTool('area-select');
+      }
+      // t for text
+      else if (e.key === 't') {
+        e.preventDefault();
+        setTool('text');
+      }
+      // x for clear canvas
+      else if (e.key === 'x') {
+        e.preventDefault();
+        clearCanvas();
+      }
+      // 1 for rectangle
+      else if (e.key === '1') {
+        e.preventDefault();
+        setTool('rectangle');
+      }
+      // 2 for circle
+      else if (e.key === '2') {
+        e.preventDefault();
+        setTool('circle');
+      }
+      // 3 for arrow
+      else if (e.key === '3') {
+        e.preventDefault();
+        setTool('arrow');
+      }
+      // 4 for curved arrow
+      else if (e.key === '4') {
+        e.preventDefault();
+        setTool('curved-arrow');
+      }
+      // 5 for diamond
+      else if (e.key === '5') {
+        e.preventDefault();
+        setTool('diamond');
+      }
+    }
+  }, [activeTextEditor, handleCopy, handlePaste, handleUndo, handleRedo, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom, isReadOnly, clearCanvas]);
 
   // Add keyboard event listener
   useEffect(() => {

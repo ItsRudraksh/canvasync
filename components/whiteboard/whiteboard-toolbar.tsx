@@ -40,25 +40,24 @@ interface WhiteboardToolbarProps {
 
 // Stage 1 tools - Basic drawing functionality
 const stage1Tools = [
-  { id: "select", icon: MousePointer, label: "Select" },
-  { id: "pen", icon: Pencil, label: "Pen" },
-  { id: "rectangle", icon: Square, label: "Rectangle" },
-  { id: "circle", icon: Circle, label: "Circle" },
-  { id: "eraser", icon: Eraser, label: "Eraser" },
+  { id: "select", icon: MousePointer, label: "Select", shortcut: "V" },
+  { id: "pen", icon: Pencil, label: "Pen", shortcut: "P" },
+  { id: "rectangle", icon: Square, label: "Rectangle", shortcut: "1" },
+  { id: "circle", icon: Circle, label: "Circle", shortcut: "2" },
+  { id: "eraser", icon: Eraser, label: "Eraser", shortcut: "E" },
 ]
 
 // Stage 2 tools - Intermediate features
 const stage2Tools = [
-  { id: "hand", icon: Hand, label: "Hand (Pan)" },
-  { id: "area-select", icon: SquareMousePointer, label: "Area Select" },
-  { id: "arrow", icon: ArrowRight, label: "Arrow" },
+  { id: "hand", icon: Hand, label: "Hand (Pan)", shortcut: "H" },
+  { id: "area-select", icon: SquareMousePointer, label: "Area Select", shortcut: "A" },
+  { id: "arrow", icon: ArrowRight, label: "Arrow", shortcut: "3" },
 ]
 
 // Stage 3 tools - Advanced features
 const stage3Tools = [
-  { id: "text", icon: Type, label: "Text" },
-  { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow" },
-  { id: "diamond", icon: Diamond, label: "Diamond" },
+  { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow", shortcut: "4" },
+  { id: "diamond", icon: Diamond, label: "Diamond", shortcut: "5" },
 ]
 
 // Combine all tools for the complete toolbar
@@ -131,7 +130,7 @@ export function WhiteboardToolbar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{t.label}</p>
+                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
                 </TooltipContent>
               </Tooltip>
             ))}
@@ -151,7 +150,7 @@ export function WhiteboardToolbar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{t.label}</p>
+                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
                 </TooltipContent>
               </Tooltip>
             ))}
@@ -171,7 +170,7 @@ export function WhiteboardToolbar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{t.label}</p>
+                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
                 </TooltipContent>
               </Tooltip>
             ))}
@@ -196,7 +195,7 @@ export function WhiteboardToolbar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>Undo</p>
+                <p>Undo <span className="text-xs text-muted-foreground ml-1">(Ctrl+Z)</span></p>
               </TooltipContent>
             </Tooltip>
             
@@ -214,7 +213,7 @@ export function WhiteboardToolbar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>Redo</p>
+                <p>Redo <span className="text-xs text-muted-foreground ml-1">(Ctrl+R)</span></p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -223,10 +222,19 @@ export function WhiteboardToolbar({
         <div className="h-px bg-border" />
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive">
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">Clear canvas</span>
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Clear canvas</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Clear Canvas <span className="text-xs text-muted-foreground ml-1">(X)</span></p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
