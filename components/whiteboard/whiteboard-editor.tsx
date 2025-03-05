@@ -2725,9 +2725,9 @@ export function WhiteboardEditor({
         canEdit: !isReadOnly,
       })
 
-      // Handle cursor movement
+      // Handle cursor movement - only emit if user has edit access
       const handlePointerMove = (e: PointerEvent) => {
-        if (!canvasRef.current) return
+        if (!canvasRef.current || isReadOnly) return
 
         const rect = canvasRef.current.getBoundingClientRect()
         const x = e.clientX - rect.left
