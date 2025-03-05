@@ -101,7 +101,7 @@ export function WhiteboardEditor({
   const [currentShape, setCurrentShape] = useState<Shape | null>(null)
   const [shapes, setShapes] = useState<Shape[]>([])
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null)
-  const [tool, setTool] = useState("pen")
+  const [tool, setTool] = useState(isReadOnly? "hand": "pen")
   const [color, setColor] = useState("#FFFFFF") // Default to white for dark mode
   const [width, setWidth] = useState(2)
   const [strokeStyle, setStrokeStyle] = useState("solid") // Default to solid line
@@ -1748,7 +1748,8 @@ export function WhiteboardEditor({
   // Handle pointer down event
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (isReadOnly || !currentUser) return
+      // Allow hand tool for all users, but require edit access for other tools
+      if ((isReadOnly || !currentUser) && tool !== "hand") return
 
       const canvas = canvasRef.current
       if (!canvas) return
@@ -1756,6 +1757,16 @@ export function WhiteboardEditor({
       const rect = canvas.getBoundingClientRect()
       const x = e.clientX - rect.left - panOffset.x
       const y = e.clientY - rect.top - panOffset.y
+
+      // Handle panning with hand tool - moved up to be handled first
+      if (tool === "hand") {
+        setIsDragging(true)
+        setStartPanPoint({ x: e.clientX, y: e.clientY })
+        return
+      }
+
+      // All other tools require edit access
+      if (isReadOnly || !currentUser) return
 
       // If text tool is selected, create a text box
       if (tool === "text") {
