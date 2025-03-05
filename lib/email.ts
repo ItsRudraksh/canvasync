@@ -60,6 +60,28 @@ export const sendDeletionEmail = async (email: string, otp: string) => {
   await transporter.sendMail(mailOptions);
 };
 
+export const sendPasswordResetEmail = async (email: string, otp: string) => {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || 'noreply@whiteboard-app.com',
+    to: email,
+    subject: 'Password Reset Request - Whiteboard App',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Reset Your Password</h2>
+        <p>We received a request to reset your Whiteboard App password. Please use the following verification code to reset your password:</p>
+        <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you didn't request this password reset, please ignore this email and make sure you can still login to your account.</p>
+        <p>For security reasons, please do not share this code with anyone.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 export const storeOTP = async (email: string, otp: string) => {
   // Delete any existing OTP for this email
   await db.otp.deleteMany({
