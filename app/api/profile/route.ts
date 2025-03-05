@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db as prisma } from "@/lib/db";
 import * as z from "zod";
+import { deleteFromS3 } from "@/lib/s3-upload";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -59,6 +60,64 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(
       { error: "Failed to update profile" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get user data to access avatar URL
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { avatar: true }
+    });
+
+    // Delete avatar from S3 if it exists
+    if (user?.avatar) {
+      await deleteFromS3(user.avatar);
+    }
+
+    // Delete all collaborator entries for user's whiteboards
+    await prisma.collaborator.deleteMany({
+      where: {
+        whiteboard: {
+          userId: session.user.id
+        }
+      }
+    });
+
+    // Delete all collaborator entries where user is a collaborator
+    await prisma.collaborator.deleteMany({
+      where: {
+        userId: session.user.id
+      }
+    });
+
+    // Delete all whiteboards owned by the user
+    await prisma.whiteboard.deleteMany({
+      where: {
+        userId: session.user.id
+      }
+    });
+
+    // Delete the user
+    await prisma.user.delete({
+      where: {
+        id: session.user.id
+      }
+    });
+
+    return NextResponse.json({ message: "Profile deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting profile:", error);
+    return NextResponse.json(
+      { error: "Failed to delete profile" },
       { status: 500 }
     );
   }
