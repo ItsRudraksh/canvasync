@@ -101,11 +101,6 @@ export default function LoginPage() {
                   Register
                 </Link>
               </div>
-              <div>
-                <Link href="/auth/forgot-password" className="text-primary hover:underline">
-                  Forgot your password?
-                </Link>
-              </div>
             </div>
           </CardFooter>
         </form>

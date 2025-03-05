@@ -105,9 +105,6 @@ export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardLis
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <Link href={`/whiteboard/${whiteboard.id}`}>
-                      <DropdownMenuItem>Open</DropdownMenuItem>
-                    </Link>
                     {!showOwner && (
                       <>
                         <Link href={`/whiteboard/${whiteboard.id}/edit`}>
@@ -126,8 +123,24 @@ export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardLis
               </div>
             </CardHeader>
             {!showOwner && (
-              <CardFooter>
+              <CardFooter className="flex justify-between items-center">
                 <ShareButton whiteboardId={whiteboard.id} />
+                <Link href={`/whiteboard/${whiteboard.id}`}>
+                  <Button variant="secondary">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Open
+                  </Button>
+                </Link>
+              </CardFooter>
+            )}
+            {showOwner && (
+              <CardFooter>
+                <Link href={`/whiteboard/${whiteboard.id}`} className="w-full">
+                  <Button variant="secondary" className="w-full">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Open
+                  </Button>
+                </Link>
               </CardFooter>
             )}
           </Card>
