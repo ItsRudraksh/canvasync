@@ -220,40 +220,40 @@ export function WhiteboardToolbar({
         </div>
         
         <div className="h-px bg-border" />
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
+        <TooltipProvider>
+          <Tooltip>
+            <AlertDialog>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="icon" className="text-destructive">
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Clear canvas</span>
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Clear Canvas <span className="text-xs text-muted-foreground ml-1">(X)</span></p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove all drawings from the canvas. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onClear}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Clear
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Clear Canvas <span className="text-xs text-muted-foreground ml-1">(X)</span></p>
+              </TooltipContent>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove all drawings from the canvas. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onClear}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Clear
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Pen Settings Box - Stage 1 for basic settings, Stage 3 for advanced settings */}
