@@ -42,6 +42,23 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   const [copied, setCopied] = useState(false)
   const [collaborators, setCollaborators] = useState<any[]>([])
 
+  // Disable keyboard shortcuts when dialog is open
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isOpen) {
+        e.stopPropagation()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown, true)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [isOpen])
+
   // Fetch initial whiteboard state and collaborators
   useEffect(() => {
     const fetchWhiteboard = async () => {
