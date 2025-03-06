@@ -8,6 +8,12 @@ import { db } from "@/lib/db"
 import { PlusCircle } from "lucide-react"
 import { WhiteboardList } from "@/components/whiteboard/whiteboard-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Dashboard | CanvaSync",
+  description: "Manage your whiteboards and collaborations in CanvaSync",
+}
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions)

@@ -12,8 +12,25 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "CanvaSync - Where Ideas Flow and Collaboration Grows",
-  description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication.",
-  generator: "v0.dev",
+  description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication. Create, share, and innovate together in real-time.",
+  keywords: "whiteboard, collaboration, real-time, drawing, brainstorming, team collaboration, digital canvas, online whiteboard",
+  authors: [{ name: "CanvaSync" }],
+  creator: "CanvaSync",
+  publisher: "CanvaSync",
+  generator: "Next.js",
+  applicationName: "CanvaSync",
+  metadataBase: new URL('https://canvasync.app'),
+  openGraph: {
+    type: "website",
+    title: "CanvaSync - Where Ideas Flow and Collaboration Grows",
+    description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication.",
+    siteName: "CanvaSync",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CanvaSync - Where Ideas Flow and Collaboration Grows",
+    description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication.",
+  },
 };
 
 export default function RootLayout({

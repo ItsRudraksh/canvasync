@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { db as prisma } from "@/lib/db";
 import ProfileForm from "@/components/ProfileForm";
 import { PageHeader } from "@/components/ui/page-header";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Profile Settings | CanvaSync",
+  description: "Manage your CanvaSync profile settings and preferences",
+}
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);

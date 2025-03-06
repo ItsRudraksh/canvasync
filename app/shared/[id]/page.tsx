@@ -6,6 +6,24 @@ import { authOptions } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { HeaderMenuWrapper } from "@/components/whiteboard/header-menu-wrapper"
+import { Metadata } from "next"
+
+interface Props {
+  params: { id: string }
+  searchParams: { auth?: string }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const whiteboard = await db.whiteboard.findUnique({
+    where: { id: params.id },
+    select: { title: true }
+  })
+
+  return {
+    title: `${whiteboard?.title || 'Shared Whiteboard'} | CanvaSync`,
+    description: `View and collaborate on ${whiteboard?.title || 'this shared whiteboard'} in CanvaSync`,
+  }
+}
 
 // Extend the session type to include the id property
 declare module "next-auth" {

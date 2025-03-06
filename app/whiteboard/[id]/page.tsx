@@ -3,8 +3,25 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { WhiteboardClient } from "@/components/whiteboard/whiteboard-client"
+import { Metadata } from "next"
 
-export default async function WhiteboardPage({ params }: { params: { id: string } }) {
+interface Props {
+  params: { id: string }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const whiteboard = await db.whiteboard.findUnique({
+    where: { id: params.id },
+    select: { title: true }
+  })
+
+  return {
+    title: `${whiteboard?.title || 'Whiteboard'} | CanvaSync`,
+    description: `Collaborate in real-time on ${whiteboard?.title || 'this whiteboard'} with CanvaSync`,
+  }
+}
+
+export default async function WhiteboardPage({ params }: Props) {
   const session = await getServerSession(authOptions)
 
   if (!session || !session.user) {

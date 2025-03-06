@@ -3,8 +3,25 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { WhiteboardForm } from "@/components/whiteboard/whiteboard-form"
+import { Metadata } from "next"
 
-export default async function EditWhiteboardPage({ params }: { params: { id: string } }) {
+interface Props {
+  params: { id: string }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const whiteboard = await db.whiteboard.findUnique({
+    where: { id: params.id },
+    select: { title: true }
+  })
+
+  return {
+    title: `Edit ${whiteboard?.title || 'Whiteboard'} | CanvaSync`,
+    description: `Edit settings for ${whiteboard?.title || 'this whiteboard'} in CanvaSync`,
+  }
+}
+
+export default async function EditWhiteboardPage({ params }: Props) {
   const session = await getServerSession(authOptions)
 
   if (!session) {
