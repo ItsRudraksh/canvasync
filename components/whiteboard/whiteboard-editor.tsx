@@ -3125,11 +3125,11 @@ export function WhiteboardEditor({
       {selectedShape && (
         <Collapsible
           className="absolute right-4 top-4 rounded-lg border border-zinc-700 bg-zinc-800/90 shadow-lg backdrop-blur z-10 md:open:h-auto"
-          defaultOpen={true}
+          defaultOpen={false}
         >
-          <div className="p-4 flex items-center justify-between">
+          <div className="p-4 flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-white">Edit {selectedShape.tool.charAt(0).toUpperCase() + selectedShape.tool.slice(1)}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

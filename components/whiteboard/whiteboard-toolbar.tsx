@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond, Download, ChevronUp, ChevronDown } from "lucide-react"
+import { Pencil, Square, Circle, ArrowRight, Eraser, Hand, MousePointer, Trash2, Undo, Redo, Type, SquareMousePointer, CornerDownRight, Diamond, Download, ChevronUp, ChevronDown, Settings } from "lucide-react"
 import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
 import { FaMinus  } from "react-icons/fa"
 import { Button } from "@/components/ui/button"
@@ -132,151 +132,165 @@ export function WhiteboardToolbar({
   return (
     <>
       {/* Main Toolbar */}
-      <div className="absolute left-4 top-4 flex flex-col gap-1 rounded-lg border bg-zinc-800/90 p-2 shadow-lg backdrop-blur">
-        <div className="flex flex-col gap-2">
-          <TooltipProvider>
-            {/* Stage 1 Tools */}
-            {stage1Tools.map((t) => (
-              <Tooltip key={t.id}>
-                <TooltipTrigger asChild>
-                  <Button variant={tool === t.id ? "default" : "ghost"} size="icon" onClick={() => setTool(t.id)}>
-                    <t.icon className="h-4 w-4" />
-                    <span className="sr-only">{t.label}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-            
-            {/* Stage 2 Tools - Hidden in Stage 1 */}
-            {stage2Tools.map((t) => (
-              <Tooltip key={t.id}>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant={tool === t.id ? "default" : "ghost"} 
-                    size="icon" 
-                    onClick={() => setTool(t.id)}
-                    className="hidden stage-2" // Hidden in Stage 1, will be shown in Stage 2
-                  >
-                    <t.icon className="h-4 w-4" />
-                    <span className="sr-only">{t.label}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {t.id === "area-select" ? (
-                    <div>
-                      <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
-                      <p className="text-xs text-muted-foreground">Ctrl+A to select all</p>
-                    </div>
-                  ) : (
+      <Collapsible
+        className="absolute left-4 top-4 rounded-lg border bg-zinc-800/90 shadow-lg backdrop-blur md:open:h-auto"
+        defaultOpen={true}
+      >
+        <div className="p-2 flex items-center justify-between gap-2 md:hidden">
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+          </div>
+          <CollapsibleTrigger className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:opacity-100">
+            <ChevronDown className="h-4 w-4" />
+            <span className="sr-only">Toggle tools</span>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent className="flex flex-col gap-1 p-2 pt-0 md:p-2">
+          <div className="flex flex-col gap-2">
+            <TooltipProvider>
+              {/* Stage 1 Tools */}
+              {stage1Tools.map((t) => (
+                <Tooltip key={t.id}>
+                  <TooltipTrigger asChild>
+                    <Button variant={tool === t.id ? "default" : "ghost"} size="icon" onClick={() => setTool(t.id)}>
+                      <t.icon className="h-4 w-4" />
+                      <span className="sr-only">{t.label}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
                     <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-            
-            {/* Stage 3 Tools - Hidden in Stages 1 and 2 */}
-            {stage3Tools.map((t) => (
-              <Tooltip key={t.id}>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+              
+              {/* Stage 2 Tools - Hidden in Stage 1 */}
+              {stage2Tools.map((t) => (
+                <Tooltip key={t.id}>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant={tool === t.id ? "default" : "ghost"} 
+                      size="icon" 
+                      onClick={() => setTool(t.id)}
+                      className="hidden stage-2" // Hidden in Stage 1, will be shown in Stage 2
+                    >
+                      <t.icon className="h-4 w-4" />
+                      <span className="sr-only">{t.label}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {t.id === "area-select" ? (
+                      <div>
+                        <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                        <p className="text-xs text-muted-foreground">Ctrl+A to select all</p>
+                      </div>
+                    ) : (
+                      <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+              
+              {/* Stage 3 Tools - Hidden in Stages 1 and 2 */}
+              {stage3Tools.map((t) => (
+                <Tooltip key={t.id}>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant={tool === t.id ? "default" : "ghost"} 
+                      size="icon" 
+                      onClick={() => setTool(t.id)}
+                      className="hidden stage-3" // Hidden in Stages 1 and 2, will be shown in Stage 3
+                    >
+                      <t.icon className="h-4 w-4" />
+                      <span className="sr-only">{t.label}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
+          </div>
+          
+          {/* Undo/Redo buttons - Stage 1 */}
+          <div className="h-px bg-border" />
+          <div className="flex flex-col gap-2">
+            <TooltipProvider>
+              <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    variant={tool === t.id ? "default" : "ghost"} 
+                    variant="ghost" 
                     size="icon" 
-                    onClick={() => setTool(t.id)}
-                    className="hidden stage-3" // Hidden in Stages 1 and 2, will be shown in Stage 3
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    className={!canUndo ? "opacity-50 cursor-not-allowed" : ""}
                   >
-                    <t.icon className="h-4 w-4" />
-                    <span className="sr-only">{t.label}</span>
+                    <Undo className="h-4 w-4" />
+                    <span className="sr-only">Undo</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{t.label} <span className="text-xs text-muted-foreground ml-1">({t.shortcut})</span></p>
+                  <p>Undo <span className="text-xs text-muted-foreground ml-1">(Ctrl+Z)</span></p>
                 </TooltipContent>
               </Tooltip>
-            ))}
-          </TooltipProvider>
-        </div>
-        
-        {/* Undo/Redo buttons - Stage 1 */}
-        <div className="h-px bg-border" />
-        <div className="flex flex-col gap-2">
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    className={!canRedo ? "opacity-50 cursor-not-allowed" : ""}
+                  >
+                    <Redo className="h-4 w-4" />
+                    <span className="sr-only">Redo</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Redo <span className="text-xs text-muted-foreground ml-1">(Ctrl+R)</span></p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          <div className="h-px bg-border" />
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onUndo}
-                  disabled={!canUndo}
-                  className={!canUndo ? "opacity-50 cursor-not-allowed" : ""}
-                >
-                  <Undo className="h-4 w-4" />
-                  <span className="sr-only">Undo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Undo <span className="text-xs text-muted-foreground ml-1">(Ctrl+Z)</span></p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onRedo}
-                  disabled={!canRedo}
-                  className={!canRedo ? "opacity-50 cursor-not-allowed" : ""}
-                >
-                  <Redo className="h-4 w-4" />
-                  <span className="sr-only">Redo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Redo <span className="text-xs text-muted-foreground ml-1">(Ctrl+R)</span></p>
-              </TooltipContent>
+              <AlertDialog>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Clear canvas</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Clear Canvas <span className="text-xs text-muted-foreground ml-1">(X)</span></p>
+                </TooltipContent>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove all drawings from the canvas. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onClear}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Clear
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </Tooltip>
           </TooltipProvider>
-        </div>
-        
-        <div className="h-px bg-border" />
-        <TooltipProvider>
-          <Tooltip>
-            <AlertDialog>
-              <TooltipTrigger asChild>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Clear canvas</span>
-                  </Button>
-                </AlertDialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Clear Canvas <span className="text-xs text-muted-foreground ml-1">(X)</span></p>
-              </TooltipContent>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear Canvas</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will remove all drawings from the canvas. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={onClear}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Clear
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Pen Settings Box - Stage 1 for basic settings, Stage 3 for advanced settings */}
       {showPenSettings && (
@@ -284,7 +298,7 @@ export function WhiteboardToolbar({
           className="absolute right-4 top-4 rounded-lg border bg-zinc-800/90 shadow-lg backdrop-blur md:open:h-auto"
           defaultOpen={true}
         >
-          <div className="p-4 flex items-center justify-between">
+          <div className="p-4 flex items-center justify-between gap-2">
             <h3 className="text-sm font-medium">Drawing Settings</h3>
             <CollapsibleTrigger className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:opacity-100 md:hidden">
               <ChevronDown className="h-4 w-4" />
