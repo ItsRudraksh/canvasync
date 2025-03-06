@@ -151,6 +151,21 @@ export function WhiteboardEditor({
   const [editingZoom, setEditingZoom] = useState(false);
   const [zoomInput, setZoomInput] = useState('');
 
+  // Add this near the other state declarations
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Add this useEffect to handle responsive behavior
+  useEffect(() => {
+    const checkIsDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768); // 768px is the 'md' breakpoint
+    };
+    
+    checkIsDesktop();
+    window.addEventListener('resize', checkIsDesktop);
+    
+    return () => window.removeEventListener('resize', checkIsDesktop);
+  }, []);
+
   const handleZoomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
     setZoomInput(value);
@@ -3125,7 +3140,7 @@ export function WhiteboardEditor({
       {selectedShape && (
         <Collapsible
           className="absolute right-4 top-4 rounded-lg border border-zinc-700 bg-zinc-800/90 shadow-lg backdrop-blur z-10 md:open:h-auto"
-          defaultOpen={false}
+          defaultOpen={isDesktop}
         >
           <div className="p-4 flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-white">Edit {selectedShape.tool.charAt(0).toUpperCase() + selectedShape.tool.slice(1)}</span>
@@ -3222,7 +3237,7 @@ export function WhiteboardEditor({
             )}
 
             {/* Fill style controls - only show for shapes that can be filled */}
-            {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
+            {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && selectedShape.tool !== "pen" && (
               <div className=" flex flex-col mb-3 hidden stage-3">
                 <label className="text-xs text-zinc-400 block mb-2">Fill Style</label>
                 <div className="flex gap-2">
