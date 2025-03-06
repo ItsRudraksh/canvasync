@@ -21,6 +21,10 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  output: 'standalone',
+  env: {
+    SOCKET_URL: process.env.SOCKET_URL || 'http://localhost:3000',
+  },
 }
 
 mergeConfig(nextConfig, userConfig)
