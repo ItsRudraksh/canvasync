@@ -1,6 +1,6 @@
 "use client"
 
-import { Menu } from "lucide-react"
+import { Menu, Keyboard } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useState } from "react"
 
 interface HeaderMenuProps {
   onExport: () => void
@@ -18,6 +26,8 @@ interface HeaderMenuProps {
 }
 
 export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: HeaderMenuProps) {
+  const [isKeyboardDialogOpen, setIsKeyboardDialogOpen] = useState(false);
+  
   return (
     <div className="flex items-center gap-2">
       {clipboardCount > 0 && (
@@ -33,6 +43,32 @@ export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: Heade
           </Button>
         </div>
       )}
+      
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="hidden md:flex" 
+              data-keyboard-shortcuts-trigger
+              onClick={() => setIsKeyboardDialogOpen(true)}
+            >
+              <Keyboard className="h-5 w-5" />
+              <span className="sr-only">Keyboard Shortcuts</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Keyboard Shortcuts</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      
+      <KeyboardShortcutsDialog 
+        isOpen={isKeyboardDialogOpen}
+        onOpenChange={setIsKeyboardDialogOpen}
+      />
+      
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon">
@@ -48,6 +84,12 @@ export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: Heade
             className="hidden stage-3"
           >
             Export Whiteboard
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={() => setIsKeyboardDialogOpen(true)}
+            className="md:hidden"
+          >
+            Keyboard Shortcuts
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
