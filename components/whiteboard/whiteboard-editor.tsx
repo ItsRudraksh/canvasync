@@ -1668,6 +1668,21 @@ export function WhiteboardEditor({
   
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        handleZoom(1, window.innerWidth / 2, window.innerHeight / 2);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        handleZoom(-1, window.innerWidth / 2, window.innerHeight / 2);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setZoomLevel(1); // Reset to 100%
+        setPanOffset({ x: 0, y: 0 }); // Reset pan offset
+      }
+    }
+
+    if(isReadOnly) return;
     // Skip if we're editing text
     if (activeTextEditor) return;
     
@@ -1792,20 +1807,6 @@ export function WhiteboardEditor({
         instanceId,
         shapes: updatedShapes
       });
-    }
-
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key === '=' || e.key === '+') {
-        e.preventDefault();
-        handleZoom(1, window.innerWidth / 2, window.innerHeight / 2);
-      } else if (e.key === '-') {
-        e.preventDefault();
-        handleZoom(-1, window.innerWidth / 2, window.innerHeight / 2);
-      } else if (e.key === '0') {
-        e.preventDefault();
-        setZoomLevel(1); // Reset to 100%
-        setPanOffset({ x: 0, y: 0 }); // Reset pan offset
-      }
     }
     
     // Tool shortcuts (only if not using modifier keys)
