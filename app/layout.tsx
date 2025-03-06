@@ -11,8 +11,8 @@ import { StageSelector } from "@/components/stage-selector";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Collaborative Whiteboard",
-  description: "A real-time collaborative whiteboard application",
+  title: "CanvaSync - Where Ideas Flow and Collaboration Grows",
+  description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication.",
   generator: "v0.dev",
 };
 
