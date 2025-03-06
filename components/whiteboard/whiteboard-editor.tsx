@@ -21,12 +21,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { jsPDF } from "jspdf"
 import { TbLineDashed , TbLineDotted  } from "react-icons/tb"
 import { FaMinus, FaPlus  } from "react-icons/fa"
+import { ChevronDown } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -1885,6 +1891,7 @@ export function WhiteboardEditor({
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (isReadOnly) return;
+      if(document.body.classList.contains("app-stage-2")) return;
       
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -3116,374 +3123,306 @@ export function WhiteboardEditor({
             
       {/* Property editor for selected shape */}
       {selectedShape && (
-        <div className="absolute right-4 top-4 flex flex-col gap-2 rounded-lg border border-zinc-700 bg-zinc-800/90 p-4 shadow-lg backdrop-blur z-10">
-          <div className="text-sm font-medium text-white mb-2 flex items-center justify-between">
-            <span>Edit {selectedShape.tool.charAt(0).toUpperCase() + selectedShape.tool.slice(1)}</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    className="text-zinc-400 hover:text-white"
+        <Collapsible
+          className="absolute right-4 top-4 rounded-lg border border-zinc-700 bg-zinc-800/90 shadow-lg backdrop-blur z-10 md:open:h-auto"
+          defaultOpen={true}
+        >
+          <div className="p-4 flex items-center justify-between">
+            <span className="text-sm font-medium text-white">Edit {selectedShape.tool.charAt(0).toUpperCase() + selectedShape.tool.slice(1)}</span>
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      className="text-zinc-400 hover:text-white"
+                      onClick={() => {
+                        setSelectedShape(null);
+                        const updatedShapes = shapes.map(s => ({ ...s, selected: false }));
+                        setShapes(updatedShapes);
+                        socket?.emit("shape-update-end", {
+                          whiteboardId: id,
+                          instanceId,
+                          shapes: updatedShapes
+                        });
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Close editor</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <CollapsibleTrigger className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:opacity-100 md:hidden">
+                <ChevronDown className="h-4 w-4" />
+                <span className="sr-only">Toggle</span>
+              </CollapsibleTrigger>
+            </div>
+          </div>
+          <CollapsibleContent className="p-4 pt-0">
+            {/* Color picker - only show for non-eraser tools */}
+            {selectedShape.tool !== "eraser" && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-2">Color</h3>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { color: "#000000", label: "Black" },
+                    { color: "#ff0000", label: "Red" },
+                    { color: "#00ff00", label: "Green" },
+                    { color: "#0000ff", label: "Blue" },
+                    { color: "#ffff00", label: "Yellow" },
+                    { color: "#ff00ff", label: "Magenta" },
+                    { color: "#00ffff", label: "Cyan" }
+                  ].map((c) => (
+                    <TooltipProvider key={c.color}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full p-0"
+                            style={{ backgroundColor: c.color }}
+                            onClick={() => {
+                              const updatedShapes = shapes.map(shape => {
+                                if (shape.id === selectedShape.id) {
+                                  return {
+                                    ...shape,
+                                    color: c.color
+                                  };
+                                }
+                                return shape;
+                              });
+                              setShapes(updatedShapes);
+                              const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                              if (updatedSelectedShape) {
+                                setSelectedShape(updatedSelectedShape);
+                                socket?.emit("shape-update", {
+                                  whiteboardId: id,
+                                  instanceId,
+                                  shape: updatedSelectedShape,
+                                  shapes: updatedShapes
+                                });
+                                saveCanvasState(updatedShapes);
+                              }
+                            }}
+                          >
+                            {selectedShape.color === c.color && <div className="h-5 w-5 rounded-full border-2 border-zinc-800" />}
+                            <span className="sr-only">Select color {c.label}</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{c.label}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fill style controls - only show for shapes that can be filled */}
+            {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
+              <div className=" flex flex-col mb-3 hidden stage-3">
+                <label className="text-xs text-zinc-400 block mb-2">Fill Style</label>
+                <div className="flex gap-2">
+                  <button
+                    className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
+                      (selectedShape.fillStyle || "transparent") === "transparent"
+                        ? "bg-blue-500 text-white" 
+                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                    }`}
                     onClick={() => {
-                      // Deselect the shape
-                      setSelectedShape(null);
-                      const updatedShapes = shapes.map(s => ({ ...s, selected: false }));
-                      setShapes(updatedShapes);
-                      
-                      // Emit socket event to notify other users about deselection
-                      socket?.emit("shape-update-end", {
-                        whiteboardId: id,
-                        instanceId,
-                        shapes: updatedShapes
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            fillStyle: "transparent",
+                            fillOpacity: undefined
+                          };
+                        }
+                        return shape;
                       });
+                      setShapes(updatedShapes);
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        saveCanvasState(updatedShapes);
+                      }
                     }}
                   >
-                    ✕
+                    <span>○</span>
+                    <span>Transparent</span>
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Close editor</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          
-          {/* Color picker - only show for non-eraser tools */}
-          {selectedShape.tool !== "eraser" && (
-            <div className="mb-3">
-              <label className="text-xs text-zinc-400 mb-1 block">Color</label>
-              <div className="flex gap-1">
-                <TooltipProvider>
-                {[
-                  { color: "#000000", label: "Black" },
-                  { color: "#ff0000", label: "Red" },
-                  { color: "#00ff00", label: "Green" },
-                  { color: "#0000ff", label: "Blue" },
-                  { color: "#ffff00", label: "Yellow" },
-                  { color: "#ff00ff", label: "Magenta" },
-                  { color: "#00ffff", label: "Cyan" }
-                ].map((c) => (
-                  <Tooltip key={c.color}>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`w-6 h-6 rounded-full border-2 ${
-                          selectedShape.color === c.color 
-                            ? "border-white" 
-                            : "border-transparent hover:border-zinc-400"
-                        }`}
-                        style={{ backgroundColor: c.color }}
-                        onClick={() => {
-                          // Update the selected shape's color
-                          const updatedShapes = shapes.map(shape => {
-                            if (shape.id === selectedShape.id) {
-                              return {
-                                ...shape,
-                                color: c.color
-                              };
-                            }
-                            return shape;
-                          });
-                          
-                          setShapes(updatedShapes);
-                          
-                          // Update the selected shape
-                          const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                          if (updatedSelectedShape) {
-                            setSelectedShape(updatedSelectedShape);
-                            
-                            // Emit socket event for shape update
-                            socket?.emit("shape-update", {
-                              whiteboardId: id,
-                              instanceId,
-                              shape: updatedSelectedShape,
-                              shapes: updatedShapes
-                            });
-                            
-                            // Save canvas state
-                            saveCanvasState(updatedShapes);
-                          }
-                        }}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{c.label}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-                </TooltipProvider>
-              </div>
-            </div>
-          )}
-
-          {/* Fill style controls - only show for shapes that can be filled */}
-          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
-            <div className=" flex flex-col mb-3 hidden stage-3">
-              <label className="text-xs text-zinc-400 block mb-2">Fill Style</label>
-              <div className="flex gap-2">
-                <button
-                  className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
-                    (selectedShape.fillStyle || "transparent") === "transparent"
-                      ? "bg-blue-500 text-white" 
-                      : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-                  }`}
-                  onClick={() => {
-                    const updatedShapes = shapes.map(shape => {
-                      if (shape.id === selectedShape.id) {
-                        return {
-                          ...shape,
-                          fillStyle: "transparent",
-                          fillOpacity: undefined
-                        };
-                      }
-                      return shape;
-                    });
-                    setShapes(updatedShapes);
-                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                    if (updatedSelectedShape) {
-                      setSelectedShape(updatedSelectedShape);
-                      socket?.emit("shape-update", {
-                        whiteboardId: id,
-                        instanceId,
-                        shape: updatedSelectedShape,
-                        shapes: updatedShapes
+                  <button
+                    className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
+                      selectedShape.fillStyle === "solid"
+                        ? "bg-blue-500 text-white" 
+                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                    }`}
+                    onClick={() => {
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            fillStyle: "solid",
+                            fillOpacity: 0.5
+                          };
+                        }
+                        return shape;
                       });
-                      saveCanvasState(updatedShapes);
-                    }
-                  }}
-                >
-                  <span>○</span>
-                  <span>Transparent</span>
-                </button>
-                <button
-                  className={`flex-1 py-2 px-3 text-sm rounded flex items-center justify-center gap-2 ${
-                    selectedShape.fillStyle === "solid"
-                      ? "bg-blue-500 text-white" 
-                      : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-                  }`}
-                  onClick={() => {
-                    const updatedShapes = shapes.map(shape => {
-                      if (shape.id === selectedShape.id) {
-                        return {
-                          ...shape,
-                          fillStyle: "solid",
-                          fillOpacity: 0.5
-                        };
+                      setShapes(updatedShapes);
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        saveCanvasState(updatedShapes);
                       }
-                      return shape;
-                    });
-                    setShapes(updatedShapes);
-                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                    if (updatedSelectedShape) {
-                      setSelectedShape(updatedSelectedShape);
-                      socket?.emit("shape-update", {
-                        whiteboardId: id,
-                        instanceId,
-                        shape: updatedSelectedShape,
-                        shapes: updatedShapes
-                      });
-                      saveCanvasState(updatedShapes);
-                    }
-                  }}
-                >
-                  <span>●</span>
-                  <span>Solid</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Fill opacity slider - only show for solid fill */}
-          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && selectedShape.fillStyle === "solid" && (
-            <div className="flex flex-col mb-3 hidden stage-3">
-              <label className="text-xs text-zinc-400 block mb-2">Fill Opacity</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={(selectedShape.fillOpacity || 0.5) * 100}
-                  onChange={(e) => {
-                    const newOpacity = parseInt(e.target.value) / 100;
-                    const updatedShapes = shapes.map(shape => {
-                      if (shape.id === selectedShape.id) {
-                        return {
-                          ...shape,
-                          fillOpacity: newOpacity
-                        };
-                      }
-                      return shape;
-                    });
-                    setShapes(updatedShapes);
-                    const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                    if (updatedSelectedShape) {
-                      setSelectedShape(updatedSelectedShape);
-                      socket?.emit("shape-update", {
-                        whiteboardId: id,
-                        instanceId,
-                        shape: updatedSelectedShape,
-                        shapes: updatedShapes
-                      });
-                      saveCanvasState(updatedShapes);
-                    }
-                  }}
-                  className="flex-1 accent-blue-500"
-                />
-                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded min-w-[48px] text-center">
-                  {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Stroke Style - only show for shapes that can have different stroke styles */}
-          {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
-            <div className="mb-3">
-              <label className="text-xs text-zinc-400 mb-1 block">Stroke Style</label>
-              <div className="flex gap-1">
-                <TooltipProvider>
-                {strokeStyles.map((style) => (
-                  <Tooltip key={style.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`flex-1 py-2 px-2 text-xs rounded ${
-                          (selectedShape.strokeStyle || "solid") === style.id 
-                            ? "bg-blue-500 text-white" 
-                            : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-                        }`}
-                        onClick={() => {
-                          // Update the selected shape's stroke style
-                          const updatedShapes = shapes.map(shape => {
-                            if (shape.id === selectedShape.id) {
-                              return {
-                                ...shape,
-                                strokeStyle: style.id
-                              };
-                            }
-                            return shape;
-                          });
-                          
-                          setShapes(updatedShapes);
-                          
-                          // Update the selected shape
-                          const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                          if (updatedSelectedShape) {
-                            setSelectedShape(updatedSelectedShape);
-                            
-                            // Emit socket event for shape update
-                            socket?.emit("shape-update", {
-                              whiteboardId: id,
-                              instanceId,
-                              shape: updatedSelectedShape,
-                              shapes: updatedShapes
-                            });
-                            
-                            // Save canvas state
-                            saveCanvasState(updatedShapes);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center justify-center">
-                          <style.Icon className="text-2xl" />
-                        </div>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{style.id.charAt(0).toUpperCase() + style.id.slice(1)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-                </TooltipProvider>
-              </div>
-            </div>
-          )}
-          
-          {/* Width slider */}
-          <div className="mb-2">
-            <label className="text-xs text-zinc-400 mb-1 block">Width: {selectedShape.width}px</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="1"
-                max="20"
-                value={selectedShape.width}
-                onChange={(e) => {
-                  const newWidth = parseInt(e.target.value);
-                  
-                  // Update the selected shape's width
-                  const updatedShapes = shapes.map(shape => {
-                    if (shape.id === selectedShape.id) {
-                      return {
-                        ...shape,
-                        width: newWidth,
-                        // Update fontSize for text shapes when width changes
-                        ...(shape.tool === "text" ? { fontSize: newWidth * 10 } : {})
-                      };
-                    }
-                    return shape;
-                  });
-                  
-                  setShapes(updatedShapes);
-                  
-                  // Update the selected shape
-                  const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
-                  if (updatedSelectedShape) {
-                    setSelectedShape(updatedSelectedShape);
-                    
-                    // Emit socket event for shape update
-                    socket?.emit("shape-update", {
-                      whiteboardId: id,
-                      instanceId,
-                      shape: updatedSelectedShape,
-                      shapes: updatedShapes
-                    });
-                    
-                    // Save canvas state
-                    saveCanvasState(updatedShapes);
-                  }
-                }}
-                className="w-full accent-blue-500"
-              />
-              <div 
-                className="h-6 w-6 rounded-full flex-shrink-0 border border-zinc-600"
-                style={{ 
-                  backgroundColor: selectedShape.tool === "eraser" ? "#1a1a1a" : selectedShape.color,
-                }}
-              >
-                <div 
-                  className="h-full w-full rounded-full flex items-center justify-center"
-                >
-                  <div 
-                    className="rounded-full bg-current"
-                    style={{ 
-                      width: `${Math.min(selectedShape.width * 1.2, 20)}px`, 
-                      height: `${Math.min(selectedShape.width * 1.2, 20)}px`,
-                      backgroundColor: selectedShape.tool === "eraser" ? "white" : selectedShape.color
                     }}
-                  />
+                  >
+                    <span>●</span>
+                    <span>Solid</span>
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Font size control for text shapes */}
-          {selectedShape.tool === "text" && (
+            )}
+
+            {/* Fill opacity slider - only show for solid fill */}
+            {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && selectedShape.fillStyle === "solid" && (
+              <div className="flex flex-col mb-3 hidden stage-3">
+                <label className="text-xs text-zinc-400 block mb-2">Fill Opacity</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={(selectedShape.fillOpacity || 0.5) * 100}
+                    onChange={(e) => {
+                      const newOpacity = parseInt(e.target.value) / 100;
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            fillOpacity: newOpacity
+                          };
+                        }
+                        return shape;
+                      });
+                      setShapes(updatedShapes);
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        saveCanvasState(updatedShapes);
+                      }
+                    }}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded min-w-[48px] text-center">
+                    {Math.round((selectedShape.fillOpacity || 0.5) * 100)}%
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Stroke Style - only show for shapes that can have different stroke styles */}
+            {selectedShape.tool !== "eraser" && selectedShape.tool !== "text" && (
+              <div className="mb-3">
+                <label className="text-xs text-zinc-400 mb-1 block">Stroke Style</label>
+                <div className="flex gap-1">
+                  <TooltipProvider>
+                  {strokeStyles.map((style) => (
+                    <Tooltip key={style.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          className={`flex-1 py-2 px-2 text-xs rounded ${
+                            (selectedShape.strokeStyle || "solid") === style.id 
+                              ? "bg-blue-500 text-white" 
+                              : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                          }`}
+                          onClick={() => {
+                            // Update the selected shape's stroke style
+                            const updatedShapes = shapes.map(shape => {
+                              if (shape.id === selectedShape.id) {
+                                return {
+                                  ...shape,
+                                  strokeStyle: style.id
+                                };
+                              }
+                              return shape;
+                            });
+                            
+                            setShapes(updatedShapes);
+                            
+                            // Update the selected shape
+                            const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                            if (updatedSelectedShape) {
+                              setSelectedShape(updatedSelectedShape);
+                              
+                              // Emit socket event for shape update
+                              socket?.emit("shape-update", {
+                                whiteboardId: id,
+                                instanceId,
+                                shape: updatedSelectedShape,
+                                shapes: updatedShapes
+                              });
+                              
+                              // Save canvas state
+                              saveCanvasState(updatedShapes);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center justify-center">
+                            <style.Icon className="text-2xl" />
+                          </div>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{style.id.charAt(0).toUpperCase() + style.id.slice(1)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                  </TooltipProvider>
+                </div>
+              </div>
+            )}
+            
+            {/* Width slider */}
             <div className="mb-2">
-              <label className="text-xs text-zinc-400 mb-1 block">Font Size: {selectedShape.fontSize || selectedShape.width * 10}px</label>
+              <label className="text-xs text-zinc-400 mb-1 block">Width: {selectedShape.width}px</label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min="10"
-                  max="100"
-                  value={selectedShape.fontSize || selectedShape.width * 10}
+                  min="1"
+                  max="20"
+                  value={selectedShape.width}
                   onChange={(e) => {
-                    const newFontSize = parseInt(e.target.value);
+                    const newWidth = parseInt(e.target.value);
                     
-                    // Update the selected shape's font size
+                    // Update the selected shape's width
                     const updatedShapes = shapes.map(shape => {
                       if (shape.id === selectedShape.id) {
                         return {
                           ...shape,
-                          fontSize: newFontSize
+                          width: newWidth,
+                          // Update fontSize for text shapes when width changes
+                          ...(shape.tool === "text" ? { fontSize: newWidth * 10 } : {})
                         };
                       }
                       return shape;
@@ -3510,188 +3449,256 @@ export function WhiteboardEditor({
                   }}
                   className="w-full accent-blue-500"
                 />
-                <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded">
-                  {selectedShape.fontSize || selectedShape.width * 10}
+                <div 
+                  className="h-6 w-6 rounded-full flex-shrink-0 border border-zinc-600"
+                  style={{ 
+                    backgroundColor: selectedShape.tool === "eraser" ? "#1a1a1a" : selectedShape.color,
+                  }}
+                >
+                  <div 
+                    className="h-full w-full rounded-full flex items-center justify-center"
+                  >
+                    <div 
+                      className="rounded-full bg-current"
+                      style={{ 
+                        width: `${Math.min(selectedShape.width * 1.2, 20)}px`, 
+                        height: `${Math.min(selectedShape.width * 1.2, 20)}px`,
+                        backgroundColor: selectedShape.tool === "eraser" ? "white" : selectedShape.color
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-          
-          {/* Edit text button for text shapes */}
-          {selectedShape.tool === "text" && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
-                    onClick={() => {
-                      // Set the shape to editing mode
-                      const updatedShapes = shapes.map(shape => {
-                        if (shape.id === selectedShape.id) {
-                          return {
-                            ...shape,
-                            isEditing: true
-                          };
-                        }
-                        return {
-                          ...shape,
-                          isEditing: false
-                        };
-                      });
-                      
-                      setShapes(updatedShapes);
-                      
-                      // Set active text editor
-                      setActiveTextEditor(selectedShape);
-                      
-                      // Set text editor size based on shape's textWidth and textHeight
-                      if (selectedShape.textWidth && selectedShape.textHeight) {
-                        setTextEditorSize({
-                          width: selectedShape.textWidth,
-                          height: selectedShape.textHeight
-                        });
-                      } else {
-                        // Default size if not set
-                        setTextEditorSize({ width: 300, height: 150 });
-                      }
-                      
-                      // Focus the text editor in the next render cycle
-                      setTimeout(() => {
-                        if (textEditorRef.current) {
-                          textEditorRef.current.focus();
-                        }
-                      }, 0);
-                    }}
-                  >
-                    Edit Text
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit the text content</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
-          {/* Resize button for text shapes */}
-          {selectedShape.tool === "text" && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="mt-1 bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
-                    onClick={() => {
-                      // Set the shape to editing mode with resize focus
-                      const updatedShapes = shapes.map(shape => {
-                        if (shape.id === selectedShape.id) {
-                          return {
-                            ...shape,
-                            isEditing: true
-                          };
-                        }
-                        return {
-                          ...shape,
-                          isEditing: false
-                        };
-                      });
-                      
-                      setShapes(updatedShapes);
-                      
-                      // Set active text editor
-                      setActiveTextEditor(selectedShape);
-                      
-                      // Set text editor size based on shape's textWidth and textHeight
-                      if (selectedShape.textWidth && selectedShape.textHeight) {
-                        setTextEditorSize({
-                          width: selectedShape.textWidth,
-                          height: selectedShape.textHeight
-                        });
-                      } else {
-                        // Default size if not set
-                        setTextEditorSize({ width: 300, height: 150 });
-                      }
-                      
-                      // Set resize mode
-                      setIsResizingTextEditor(true);
-                      
-                      // Focus the text editor in the next render cycle
-                      setTimeout(() => {
-                        if (textEditorRef.current) {
-                          textEditorRef.current.focus();
-                        }
-                      }, 0);
-                    }}
-                  >
-                    Resize Text Box
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Change the text box dimensions</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
-          {/* Delete button */}
-          <div className="flex gap-2 mt-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
-                    onClick={handleCopy}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                    </svg>
-                    Copy
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy this shape to clipboard</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
-                    onClick={() => {
-                      // Remove the selected shape
-                      const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
+            {/* Font size control for text shapes */}
+            {selectedShape.tool === "text" && (
+              <div className="mb-2">
+                <label className="text-xs text-zinc-400 mb-1 block">Font Size: {selectedShape.fontSize || selectedShape.width * 10}px</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={selectedShape.fontSize || selectedShape.width * 10}
+                    onChange={(e) => {
+                      const newFontSize = parseInt(e.target.value);
                       
-                      setShapes(updatedShapes);
-                      setSelectedShape(null);
-                      
-                      // Emit socket event for shape update
-                      socket?.emit("shape-update-end", {
-                        whiteboardId: id,
-                        instanceId,
-                        shapes: updatedShapes
+                      // Update the selected shape's font size
+                      const updatedShapes = shapes.map(shape => {
+                        if (shape.id === selectedShape.id) {
+                          return {
+                            ...shape,
+                            fontSize: newFontSize
+                          };
+                        }
+                        return shape;
                       });
                       
-                      // Save canvas state
-                      saveCanvasState(updatedShapes);
+                      setShapes(updatedShapes);
+                      
+                      // Update the selected shape
+                      const updatedSelectedShape = updatedShapes.find(s => s.id === selectedShape.id);
+                      if (updatedSelectedShape) {
+                        setSelectedShape(updatedSelectedShape);
+                        
+                        // Emit socket event for shape update
+                        socket?.emit("shape-update", {
+                          whiteboardId: id,
+                          instanceId,
+                          shape: updatedSelectedShape,
+                          shapes: updatedShapes
+                        });
+                        
+                        // Save canvas state
+                        saveCanvasState(updatedShapes);
+                      }
                     }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                    </svg>
-                    Delete
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Delete this shape</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
+                    className="w-full accent-blue-500"
+                  />
+                  <div className="text-xs font-mono bg-zinc-700 px-2 py-1 rounded">
+                    {selectedShape.fontSize || selectedShape.width * 10}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Edit text button for text shapes */}
+            {selectedShape.tool === "text" && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+                      onClick={() => {
+                        // Set the shape to editing mode
+                        const updatedShapes = shapes.map(shape => {
+                          if (shape.id === selectedShape.id) {
+                            return {
+                              ...shape,
+                              isEditing: true
+                            };
+                          }
+                          return {
+                            ...shape,
+                            isEditing: false
+                          };
+                        });
+                        
+                        setShapes(updatedShapes);
+                        
+                        // Set active text editor
+                        setActiveTextEditor(selectedShape);
+                        
+                        // Set text editor size based on shape's textWidth and textHeight
+                        if (selectedShape.textWidth && selectedShape.textHeight) {
+                          setTextEditorSize({
+                            width: selectedShape.textWidth,
+                            height: selectedShape.textHeight
+                          });
+                        } else {
+                          // Default size if not set
+                          setTextEditorSize({ width: 300, height: 150 });
+                        }
+                        
+                        // Focus the text editor in the next render cycle
+                        setTimeout(() => {
+                          if (textEditorRef.current) {
+                            textEditorRef.current.focus();
+                          }
+                        }, 0);
+                      }}
+                    >
+                      Edit Text
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Edit the text content</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
+            {/* Resize button for text shapes */}
+            {selectedShape.tool === "text" && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="mt-1 bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+                      onClick={() => {
+                        // Set the shape to editing mode with resize focus
+                        const updatedShapes = shapes.map(shape => {
+                          if (shape.id === selectedShape.id) {
+                            return {
+                              ...shape,
+                              isEditing: true
+                            };
+                          }
+                          return {
+                            ...shape,
+                            isEditing: false
+                          };
+                        });
+                        
+                        setShapes(updatedShapes);
+                        
+                        // Set active text editor
+                        setActiveTextEditor(selectedShape);
+                        
+                        // Set text editor size based on shape's textWidth and textHeight
+                        if (selectedShape.textWidth && selectedShape.textHeight) {
+                          setTextEditorSize({
+                            width: selectedShape.textWidth,
+                            height: selectedShape.textHeight
+                          });
+                        } else {
+                          // Default size if not set
+                          setTextEditorSize({ width: 300, height: 150 });
+                        }
+                        
+                        // Set resize mode
+                        setIsResizingTextEditor(true);
+                        
+                        // Focus the text editor in the next render cycle
+                        setTimeout(() => {
+                          if (textEditorRef.current) {
+                            textEditorRef.current.focus();
+                          }
+                        }, 0);
+                      }}
+                    >
+                      Resize Text Box
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Change the text box dimensions</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
+            {/* Delete button */}
+            <div className="flex gap-2 mt-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+                      onClick={handleCopy}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                      </svg>
+                      Copy
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copy this shape to clipboard</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+                      onClick={() => {
+                        // Remove the selected shape
+                        const updatedShapes = shapes.filter(shape => shape.id !== selectedShape.id);
+                        
+                        setShapes(updatedShapes);
+                        setSelectedShape(null);
+                        
+                        // Emit socket event for shape update
+                        socket?.emit("shape-update-end", {
+                          whiteboardId: id,
+                          instanceId,
+                          shapes: updatedShapes
+                        });
+                        
+                        // Save canvas state
+                        saveCanvasState(updatedShapes);
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18"></path>
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                      </svg>
+                      Delete
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Delete this shape</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
       
       {/* Text editor overlay */}
