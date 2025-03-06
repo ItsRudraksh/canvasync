@@ -22,11 +22,15 @@ import { ShareButton } from "./share-button"
 import { Whiteboard, User } from "@prisma/client"
 
 interface WhiteboardListProps {
-  whiteboards: (Whiteboard & { user: Pick<User, "name"> })[]
-  showOwner?: boolean
+  whiteboards: (Whiteboard & {
+    user: Pick<User, "name">;
+    collaborators?: Array<{ canEdit: boolean }>;
+  })[];
+  showOwner?: boolean;
+  showAccessLevel?: boolean;
 }
 
-export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardListProps) {
+export function WhiteboardList({ whiteboards, showOwner = false, showAccessLevel = false }: WhiteboardListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -95,6 +99,11 @@ export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardLis
                   <CardDescription className="truncate">
                     Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
                     {showOwner && ` • By ${whiteboard.user.name}`}
+                    {showAccessLevel && whiteboard.collaborators?.[0] && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        {whiteboard.collaborators[0].canEdit ? "Editor" : "Viewer"}
+                      </span>
+                    )}
                   </CardDescription>
                 </div>
                 <DropdownMenu>

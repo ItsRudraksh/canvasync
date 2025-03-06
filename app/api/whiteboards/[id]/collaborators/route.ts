@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { z } from "zod"
+import { sendCollaborationInvite } from "@/lib/email"
 
 const collaboratorSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -24,6 +25,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // Check if user is owner
     const whiteboard = await db.whiteboard.findUnique({
       where: { id },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
     })
 
     if (!whiteboard) {
@@ -90,6 +98,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           },
         },
       },
+    })
+
+    // Send collaboration invite email
+    const whiteboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/shared/${id}`
+    await sendCollaborationInvite({
+      to: email,
+      whiteboardTitle: whiteboard.title,
+      whiteboardUrl,
+      inviterName: session.user.name || "A CanvaSync user",
+      canEdit,
     })
 
     return NextResponse.json(collaborator)

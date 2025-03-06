@@ -28,19 +28,10 @@ export default async function Dashboard() {
     select: { avatar: true }
   });
 
-  const [myWhiteboards, publicWhiteboards] = await Promise.all([
+  const [myWhiteboards, sharedWhiteboards, publicWhiteboards] = await Promise.all([
     db.whiteboard.findMany({
       where: {
-        OR: [
-          { userId: session.user.id },
-          {
-            collaborators: {
-              some: {
-                userId: session.user.id,
-              },
-            },
-          },
-        ],
+        userId: session.user.id,
       },
       include: {
         user: {
@@ -55,9 +46,45 @@ export default async function Dashboard() {
     }),
     db.whiteboard.findMany({
       where: {
+        collaborators: {
+          some: {
+            userId: session.user.id,
+          },
+        },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+        collaborators: {
+          where: {
+            userId: session.user.id,
+          },
+          select: {
+            canEdit: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    }),
+    db.whiteboard.findMany({
+      where: {
         isPublic: true,
         NOT: {
-          userId: session.user.id,
+          OR: [
+            { userId: session.user.id },
+            {
+              collaborators: {
+                some: {
+                  userId: session.user.id,
+                },
+              },
+            },
+          ],
         },
       },
       include: {
@@ -96,10 +123,14 @@ export default async function Dashboard() {
         <Tabs defaultValue="my-whiteboards" className="mt-6 sm:mt-8">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="my-whiteboards" className="flex-1 sm:flex-none">My Whiteboards</TabsTrigger>
+            <TabsTrigger value="shared-whiteboards" className="flex-1 sm:flex-none">Shared with Me</TabsTrigger>
             <TabsTrigger value="public-whiteboards" className="flex-1 sm:flex-none">Public Whiteboards</TabsTrigger>
           </TabsList>
           <TabsContent value="my-whiteboards" className="mt-4 sm:mt-6">
             <WhiteboardList whiteboards={myWhiteboards} showOwner={false} />
+          </TabsContent>
+          <TabsContent value="shared-whiteboards" className="mt-4 sm:mt-6">
+            <WhiteboardList whiteboards={sharedWhiteboards} showOwner={true} showAccessLevel={true} />
           </TabsContent>
           <TabsContent value="public-whiteboards" className="mt-4 sm:mt-6">
             <WhiteboardList whiteboards={publicWhiteboards} showOwner={true} />
