@@ -34,18 +34,20 @@ export function PageHeader({ title, children, breadcrumbs }: PageHeaderProps) {
                 </BreadcrumbLink>
               </BreadcrumbItem>
               {breadcrumbs.map((crumb, index) => (
-                <BreadcrumbItem key={index}>
+                <>
                   <BreadcrumbSeparator />
-                  {crumb.href ? (
-                    <BreadcrumbLink href={crumb.href} className="text-sm">
-                      {crumb.label}
-                    </BreadcrumbLink>
-                  ) : (
-                    <BreadcrumbPage className="text-sm font-medium truncate">
-                      {crumb.label}
-                    </BreadcrumbPage>
-                  )}
-                </BreadcrumbItem>
+                  <BreadcrumbItem key={index}>
+                    {crumb.href ? (
+                      <BreadcrumbLink href={crumb.href} className="text-sm">
+                        {crumb.label}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage className="text-sm font-medium truncate">
+                        {crumb.label}
+                      </BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </>
               ))}
             </BreadcrumbList>
           </Breadcrumb>

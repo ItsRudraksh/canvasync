@@ -154,6 +154,11 @@ export function WhiteboardEditor({
   // Add this near the other state declarations
   const [isDesktop, setIsDesktop] = useState(false);
 
+  // Add state for touch events
+  const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null)
+  const [touchStartZoom, setTouchStartZoom] = useState<number | null>(null)
+  const [isPinching, setIsPinching] = useState(false)
+
   // Add this useEffect to handle responsive behavior
   useEffect(() => {
     const checkIsDesktop = () => {
@@ -2009,6 +2014,9 @@ export function WhiteboardEditor({
   // Handle pointer down event
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      // Disable pointer interactions while pinching
+      if (isPinching) return;
+
       // Allow hand tool for all users, but require edit access for other tools
       if ((isReadOnly || !currentUser) && tool !== "hand") return
 
@@ -2262,11 +2270,14 @@ export function WhiteboardEditor({
         shape: newShape,
       })
     },
-    [id, instanceId, tool, color, width, strokeStyle, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor, multiSelectedShapes]
+    [id, instanceId, tool, color, width, strokeStyle, isReadOnly, currentUser, socket, shapes, selectedShape, getResizeHandle, getShapeBounds, panOffset, handleEraserMove, activeTextEditor, handleTextBlur, isResizingTextEditor, multiSelectedShapes, isPinching]
   )
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      // Disable pointer interactions while pinching
+      if (isPinching) return;
+
       const canvas = canvasRef.current
       if (!canvas) return
 
@@ -2503,7 +2514,7 @@ export function WhiteboardEditor({
         shape: updatedShape,
       })
     },
-    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor, isAreaSelecting, selectionBox, isMultiDragging, multiSelectedShapes, strokeStyle]
+    [id, instanceId, isDrawing, currentShape, isReadOnly, currentUser, socket, isDragging, startPanPoint, panOffset, tool, dragStartPoint, selectedShape, shapes, isResizing, resizeHandle, resizeShape, handleEraserMove, activeTextEditor, isResizingTextEditor, isAreaSelecting, selectionBox, isMultiDragging, multiSelectedShapes, strokeStyle, isPinching]
   )
 
   // Handle window resize
@@ -3034,6 +3045,56 @@ export function WhiteboardEditor({
     handleZoom(-1, window.innerWidth / 2, window.innerHeight / 2)
     console.log(zoomLevel);
   }, [handleZoom])
+
+  // Add touch event handlers before the return statement
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 2) {
+      // Prevent default to avoid unwanted scrolling/zooming
+      e.preventDefault();
+      
+      // Set pinching state to true
+      setIsPinching(true);
+      
+      // Calculate initial distance between touch points
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      
+      setTouchStartDistance(distance);
+      setTouchStartZoom(zoomLevel);
+    }
+  }, [zoomLevel]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 2 && touchStartDistance && touchStartZoom) {
+      // Prevent default to avoid unwanted scrolling/zooming
+      e.preventDefault();
+      
+      // Calculate new distance between touch points
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      
+      // Calculate scale factor based on the change in distance
+      const scale = distance / touchStartDistance;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * scale));
+      
+      // Calculate the midpoint between the two touches
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      
+      setZoomLevel(newZoom);
+    }
+  }, [touchStartDistance, touchStartZoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    setTouchStartDistance(null);
+    setTouchStartZoom(null);
+    // Reset pinching state
+    setIsPinching(false);
+  }, []);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
@@ -3834,6 +3895,9 @@ export function WhiteboardEditor({
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onDoubleClick={handleDoubleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
       {Object.entries(cursors).map(([clientId, cursor]) => (
         <UserCursor 
