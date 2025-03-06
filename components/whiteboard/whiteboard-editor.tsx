@@ -1437,6 +1437,9 @@ export function WhiteboardEditor({
     addToHistory(shapes);
     
     setShapes([])
+    setSelectedShape(null);
+    setMultiSelectedShapes([]);
+    
     socket?.emit("clear-canvas", {
       whiteboardId: id,
       instanceId,
@@ -1768,24 +1771,27 @@ export function WhiteboardEditor({
     if (e.key === 'Escape') {
       e.preventDefault();
       
-      // Clear single selection
-      if (selectedShape) {
-        setSelectedShape(null);
-      }
+      // Update all shapes to remove selection indicators
+      const updatedShapes = shapes.map(shape => ({
+        ...shape,
+        selected: false,
+        multiSelected: false
+      }));
       
-      // Clear multi-selection
-      if (multiSelectedShapes.length > 0) {
-        const updatedShapes = shapes.map(shape => ({
-          ...shape,
-          multiSelected: false
-        }));
-        
-        setShapes(updatedShapes);
-        setMultiSelectedShapes([]);
-        
-        // Save canvas state
-        saveCanvasState(updatedShapes);
-      }
+      // Clear selection states
+      setSelectedShape(null);
+      setMultiSelectedShapes([]);
+      
+      // Update shapes and save canvas state
+      setShapes(updatedShapes);
+      saveCanvasState(updatedShapes);
+      
+      // Emit socket event for shape update
+      socket?.emit("shape-update-end", {
+        whiteboardId: id,
+        instanceId,
+        shapes: updatedShapes
+      });
     }
 
     if (e.ctrlKey || e.metaKey) {
@@ -2649,6 +2655,9 @@ export function WhiteboardEditor({
       if (remoteId !== instanceId) {
         console.log("Remote canvas cleared");
         setShapes([]);
+        setSelectedShape(null);
+        setMultiSelectedShapes([]);
+        
         // Save empty canvas state when canvas is cleared remotely
         saveCanvasState([]);
         
