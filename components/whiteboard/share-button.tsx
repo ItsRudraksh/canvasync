@@ -38,6 +38,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [collaboratorEmail, setCollaboratorEmail] = useState("")
   const [canEdit, setCanEdit] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // Fetch initial whiteboard state
   useEffect(() => {
@@ -58,10 +59,15 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink)
+    setCopied(true)
     toast({
       title: "Link copied",
       description: "The share link has been copied to your clipboard",
     })
+    // Reset copied state after 2 seconds
+    setTimeout(() => {
+      setCopied(false)
+    }, 2000)
   }
 
   const handleTogglePublic = async () => {
@@ -154,84 +160,88 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100%-32px)] max-w-md p-4 md:p-6 max-h-[calc(100vh-64px)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Share Whiteboard</DialogTitle>
           <DialogDescription>Share your whiteboard with others or make it public</DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="link">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="link">Share Link</TabsTrigger>
-            <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
+
+        <Tabs defaultValue="share-link" className="mt-2">
+          <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+            <TabsTrigger value="share-link" className="text-sm py-2">Share Link</TabsTrigger>
+            <TabsTrigger value="collaborators" className="text-sm py-2">Collaborators</TabsTrigger>
           </TabsList>
-          <TabsContent value="link" className="space-y-4 py-4">
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label className="text-base">Public Access</Label>
-                <p className="text-sm text-muted-foreground">
-                  {isPublic
-                    ? "Anyone with the link can view this whiteboard"
-                    : "Only collaborators can access this whiteboard"}
-                </p>
+          <TabsContent value="share-link" className="mt-4 space-y-4">
+            <div className="grid gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="link" className="text-sm">Share Link</Label>
+                <div className="flex gap-2 flex-col sm:flex-row">
+                  <Input
+                    id="link"
+                    readOnly
+                    value={shareLink}
+                    className="h-9 md:h-10 flex-1 text-sm"
+                  />
+                  <Button
+                    onClick={handleCopyLink}
+                    className="w-full sm:w-24 h-9 md:h-10 text-sm"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
               </div>
-              <Switch
-                id="public"
-                checked={isPublic}
-                onCheckedChange={handleTogglePublic}
-                disabled={isLoading}
-                className="data-[state=checked]:bg-primary"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Input value={shareLink} readOnly className="flex-1" />
-              <Button onClick={handleCopyLink} type="button">
-                Copy
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {isPublic ? (
-                <Globe className="h-4 w-4" />
-              ) : (
-                <Lock className="h-4 w-4" />
-              )}
-              <span>
-                {isPublic
-                  ? "Anyone with the link can view this whiteboard"
-                  : "Only collaborators can access this whiteboard"}
-              </span>
-            </div>
-          </TabsContent>
-          <TabsContent value="collaborators" className="py-4">
-            <form onSubmit={handleAddCollaborator} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={collaboratorEmail}
-                  onChange={(e) => setCollaboratorEmail(e.target.value)}
-                  required
+
+              <div className="flex items-center justify-between space-x-2">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-sm">Public Access</Label>
+                  <span className="text-xs text-muted-foreground">
+                    Anyone with the link can view this whiteboard
+                  </span>
+                </div>
+                <Switch
+                  checked={isPublic}
+                  onCheckedChange={handleTogglePublic}
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="canEdit" checked={canEdit} onCheckedChange={setCanEdit} />
-                <Label htmlFor="canEdit">Can edit</Label>
-              </div>
-              <Button type="submit" disabled={isLoading || !collaboratorEmail}>
-                {isLoading ? "Adding..." : "Add Collaborator"}
-              </Button>
-            </form>
-            <div className="mt-6">
+            </div>
+          </TabsContent>
+          <TabsContent value="collaborators" className="mt-4 overflow-y-auto max-h-[60vh]">
+            <div className="space-y-4">
+              <form onSubmit={handleAddCollaborator} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm">Add Collaborator</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="colleague@example.com"
+                    value={collaboratorEmail}
+                    onChange={(e) => setCollaboratorEmail(e.target.value)}
+                    className="h-9"
+                    required
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="canEdit"
+                      checked={canEdit}
+                      onCheckedChange={setCanEdit}
+                    />
+                    <Label htmlFor="canEdit" className="text-sm">Can edit</Label>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading || !collaboratorEmail}
+                    size="sm"
+                  >
+                    Add
+                  </Button>
+                </div>
+              </form>
               <CollaboratorList whiteboardId={whiteboardId} />
             </div>
           </TabsContent>
         </Tabs>
-        <DialogFooter className="sm:justify-start">
-          <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

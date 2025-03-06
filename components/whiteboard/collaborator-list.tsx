@@ -117,33 +117,42 @@ export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
   }
 
   if (isLoading) {
-    return <div className="text-center py-4">Loading collaborators...</div>
+    return <div className="text-center py-2 text-sm text-muted-foreground">Loading collaborators...</div>
   }
 
   if (collaborators.length === 0) {
-    return <div className="text-center py-4 text-muted-foreground">No collaborators yet</div>
+    return <div className="text-center py-2 text-sm text-muted-foreground">No collaborators yet</div>
   }
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-medium">Collaborators</h3>
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium">Current Collaborators</h3>
       <ul className="space-y-2">
         {collaborators.map((collaborator) => (
-          <li key={collaborator.id} className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="font-medium">{collaborator.user.name}</p>
-              <p className="text-sm text-muted-foreground">{collaborator.user.email}</p>
+          <li 
+            key={collaborator.id} 
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-md border bg-background/50 p-2"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{collaborator.user.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{collaborator.user.email}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
               <Button
                 variant="outline"
                 size="sm"
+                className="h-7 text-xs px-2"
                 onClick={() => handleTogglePermission(collaborator.id, collaborator.canEdit)}
               >
                 {collaborator.canEdit ? "Make Viewer" : "Make Editor"}
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => handleRemoveCollaborator(collaborator.id)}>
-                <Trash2 className="h-4 w-4" />
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => handleRemoveCollaborator(collaborator.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
                 <span className="sr-only">Remove</span>
               </Button>
             </div>

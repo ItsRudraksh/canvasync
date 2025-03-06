@@ -3062,7 +3062,7 @@ export function WhiteboardEditor({
           setShowExportDialog(open);
         }
       }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-[calc(100%-32px)] max-w-[425px] p-4 md:p-6">
           <DialogHeader>
             <DialogTitle>Export Whiteboard</DialogTitle>
             <DialogDescription>
@@ -3070,12 +3070,12 @@ export function WhiteboardEditor({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-3 py-3 md:gap-4 md:py-4">
             <div className="grid gap-2">
               <Label htmlFor="filename">File Name</Label>
               <input
                 id="filename"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 md:h-10 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={exportFileName}
                 onChange={(e) => setExportFileName(e.target.value)}
                 placeholder="whiteboard-export"
@@ -3088,16 +3088,16 @@ export function WhiteboardEditor({
               <RadioGroup 
                 value={exportFormat} 
                 onValueChange={(value) => setExportFormat(value as "png" | "pdf")}
-                className="flex flex-col space-y-1"
+                className="flex flex-col space-y-1.5"
                 disabled={isExporting}
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="png" id="png" disabled={isExporting} />
-                  <Label htmlFor="png">PNG Image</Label>
+                  <Label htmlFor="png" className="text-sm">PNG Image</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="pdf" id="pdf" disabled={isExporting} />
-                  <Label htmlFor="pdf">PDF Document</Label>
+                  <Label htmlFor="pdf" className="text-sm">PDF Document</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -3111,15 +3111,24 @@ export function WhiteboardEditor({
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 disabled={isExporting}
               />
-              <Label htmlFor="include-background">Include grid background</Label>
+              <Label htmlFor="include-background" className="text-sm">Include grid background</Label>
             </div>
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExportDialog(false)} disabled={isExporting}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end sm:space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowExportDialog(false)} 
+              disabled={isExporting}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={performExport} disabled={isExporting}>
+            <Button 
+              onClick={performExport} 
+              disabled={isExporting}
+              className="w-full sm:w-auto"
+            >
               {isExporting ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
