@@ -159,6 +159,10 @@ export function WhiteboardEditor({
   const [touchStartZoom, setTouchStartZoom] = useState<number | null>(null)
   const [isPinching, setIsPinching] = useState(false)
   const [touchStartMidpoint, setTouchStartMidpoint] = useState<Point | null>(null)
+  const [showMobileContextMenu, setShowMobileContextMenu] = useState(false)
+  const [contextMenuPosition, setContextMenuPosition] = useState<Point | null>(null)
+  const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [touchStartTime, setTouchStartTime] = useState<number | null>(null)
 
   // Add this useEffect to handle responsive behavior
   useEffect(() => {
@@ -3050,19 +3054,20 @@ export function WhiteboardEditor({
   // Add touch event handlers before the return statement
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     if (e.touches.length === 2) {
-      // Prevent default to avoid unwanted scrolling/zooming
-      e.preventDefault();
+      // Clear any pending long press timer
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current);
+      }
       
-      // Set pinching state to true
+      // Handle pinch gesture
+      e.preventDefault();
       setIsPinching(true);
       
-      // Calculate initial distance between touch points
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
       
-      // Calculate initial midpoint
       const midpoint = {
         x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2
@@ -3071,10 +3076,38 @@ export function WhiteboardEditor({
       setTouchStartDistance(distance);
       setTouchStartZoom(zoomLevel);
       setTouchStartMidpoint(midpoint);
+    } else if (e.touches.length === 1 && clipboardShapes.length > 0) {
+      // Start timing for long press
+      const touch = e.touches[0];
+      setTouchStartTime(Date.now());
+      
+      longPressTimeoutRef.current = setTimeout(() => {
+        setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
+        setShowMobileContextMenu(true);
+      }, 500); // 500ms for long press
     }
-  }, [zoomLevel]);
+  }, [zoomLevel, clipboardShapes.length]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Clear long press timer if touch moves
+    if (longPressTimeoutRef.current && touchStartTime && contextMenuPosition) {
+      const touch = e.touches[0];
+      const moveThreshold = 10; // pixels
+      const timeThreshold = 500; // milliseconds
+      
+      // Calculate movement distance
+      const dx = touch.clientX - contextMenuPosition.x;
+      const dy = touch.clientY - contextMenuPosition.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // If moved more than threshold or time elapsed, cancel long press
+      if (distance > moveThreshold || Date.now() - touchStartTime > timeThreshold) {
+        clearTimeout(longPressTimeoutRef.current);
+        setShowMobileContextMenu(false);
+      }
+    }
+
+    // Handle pinch-to-zoom and pan
     if (e.touches.length === 2 && touchStartDistance && touchStartZoom && touchStartMidpoint) {
       // Prevent default to avoid unwanted scrolling/zooming
       e.preventDefault();
@@ -3109,15 +3142,86 @@ export function WhiteboardEditor({
       // Update the start midpoint for the next move event
       setTouchStartMidpoint(currentMidpoint);
     }
-  }, [touchStartDistance, touchStartZoom, touchStartMidpoint]);
+  }, [touchStartDistance, touchStartZoom, touchStartMidpoint, touchStartTime, contextMenuPosition]);
 
   const handleTouchEnd = useCallback(() => {
+    // Clear long press timer
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+    }
+    
+    // Only hide context menu if we're not actively selecting an option
+    if (!showMobileContextMenu) {
+      setContextMenuPosition(null);
+    }
+    
+    setTouchStartTime(null);
     setTouchStartDistance(null);
     setTouchStartZoom(null);
     setTouchStartMidpoint(null);
-    // Reset pinching state
     setIsPinching(false);
-  }, []);
+  }, [showMobileContextMenu]);
+
+  const handleMobilePaste = useCallback(() => {
+    if (contextMenuPosition && clipboardShapes.length > 0) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const { x, y } = screenToCanvasCoordinates(
+        contextMenuPosition.x,
+        contextMenuPosition.y
+      );
+
+      // Create copies of clipboard shapes at the touch position
+      const pastedShapes = clipboardShapes.map(shape => {
+        // Calculate the bounding box of the original shape
+        const bounds = getShapeBounds(shape);
+        const centerX = (bounds.x1 + bounds.x2) / 2;
+        const centerY = (bounds.y1 + bounds.y2) / 2;
+
+        // Calculate the offset to center the shape at the touch point
+        const offsetX = x - centerX;
+        const offsetY = y - centerY;
+
+        return {
+          ...shape,
+          id: nanoid(),
+          points: shape.points.map(point => ({
+            x: point.x + offsetX,
+            y: point.y + offsetY
+          })),
+          selected: false,
+          multiSelected: false,
+          ...(shape.controlPoint ? {
+            controlPoint: {
+              x: shape.controlPoint.x + offsetX,
+              y: shape.controlPoint.y + offsetY
+            }
+          } : {})
+        };
+      });
+
+      setShapes([...shapes, ...pastedShapes]);
+      
+      // Emit socket event for shape update
+      socket?.emit("shape-update", {
+        whiteboardId: id,
+        instanceId,
+        shapes: [...shapes, ...pastedShapes]
+      });
+      
+      // Save canvas state
+      saveCanvasState([...shapes, ...pastedShapes]);
+      
+      // Add to history
+      addToHistory([...shapes, ...pastedShapes]);
+    }
+    
+    // Hide the context menu
+    setShowMobileContextMenu(false);
+    setContextMenuPosition(null);
+  }, [contextMenuPosition, clipboardShapes, shapes, id, instanceId, socket, saveCanvasState, addToHistory, screenToCanvasCoordinates, getShapeBounds]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
@@ -3898,6 +4002,25 @@ export function WhiteboardEditor({
               </svg>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Mobile Context Menu */}
+      {showMobileContextMenu && contextMenuPosition && (
+        <div
+          className="fixed z-50 bg-zinc-800 rounded-lg shadow-lg border border-zinc-700 py-2"
+          style={{
+            left: contextMenuPosition.x,
+            top: contextMenuPosition.y,
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
+          <button
+            className="w-full px-4 py-2 text-sm text-white hover:bg-zinc-700 text-left"
+            onClick={handleMobilePaste}
+          >
+            Paste {clipboardShapes.length} {clipboardShapes.length === 1 ? 'shape' : 'shapes'}
+          </button>
         </div>
       )}
       
