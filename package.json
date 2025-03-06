@@ -8,7 +8,7 @@
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "socket": "node server/socket-server.js",
-    "deploy": "npm install --force && npm run build"
+    "deploy": "npx prisma generate && npm run build"
   },
   "dependencies": {
     "@auth/core": "latest",
