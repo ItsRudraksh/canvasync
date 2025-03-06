@@ -3827,7 +3827,7 @@ export function WhiteboardEditor({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Zoom In</p>
+              <p>Zoom In <span className="text-xs text-muted-foreground ml-1">(Ctrl+Plus)</span></p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -3875,7 +3875,7 @@ export function WhiteboardEditor({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Zoom Out</p>
+              <p>Zoom Out <span className="text-xs text-muted-foreground ml-1">(Ctrl+Minus)</span></p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
