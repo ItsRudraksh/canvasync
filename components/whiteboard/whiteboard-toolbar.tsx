@@ -77,6 +77,16 @@ const colors = [
   "#44FFFF", // Cyan
 ]
 
+const colorNames: Record<string, string> = {
+  "#FFFFFF": "White",
+  "#FF4444": "Red",
+  "#44FF44": "Green",
+  "#4444FF": "Blue",
+  "#FFFF44": "Yellow",
+  "#FF44FF": "Magenta",
+  "#44FFFF": "Cyan"
+}
+
 const strokeStyles = [
   { id: "solid", label: "Solid", Icon: FaMinus  },
   { id: "dashed", label: "Dashed", Icon: TbLineDashed },
@@ -266,60 +276,81 @@ export function WhiteboardToolbar({
       {/* Pen Settings Box - Stage 1 for basic settings, Stage 3 for advanced settings */}
       {showPenSettings && (
         <div className="absolute right-4 top-4 rounded-lg border bg-zinc-800/90 p-4 shadow-lg backdrop-blur">
-          <div className="mb-4">
-            <h3 className="text-sm font-medium mb-2">Color</h3>
-            <div className="flex flex-wrap gap-2">
-              {colors.map((c) => (
-                <Button
-                  key={c}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full p-0"
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                >
-                  {color === c && <div className="h-5 w-5 rounded-full border-2 border-zinc-800" />}
-                  <span className="sr-only">Select color {c}</span>
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Stroke Style Selector - Stage 3 feature */}
-          {tool !== "text" && tool !== "eraser" && (
+          <TooltipProvider>
             <div className="mb-4">
-              <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
-              <div className="flex gap-2">
-                {strokeStyles.map((style) => (
-                  <button
-                    key={style.id}
-                    className={`flex-1 py-2 px-2 rounded ${
-                      (strokeStyle || "solid") === style.id 
-                        ? "bg-blue-500 text-white" 
-                        : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-                    }`}
-                    onClick={() => setStrokeStyle(style.id)}
-                  >
-                    <div className="flex items-center justify-center">
-                      <style.Icon className="text-2xl" />
-                    </div>
-                  </button>
+              <h3 className="text-sm font-medium mb-2">Color</h3>
+              <div className="flex flex-wrap gap-2">
+                {colors.map((c) => (
+                  <Tooltip key={c}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full p-0"
+                        style={{ backgroundColor: c }}
+                        onClick={() => setColor(c)}
+                      >
+                        {color === c && <div className="h-5 w-5 rounded-full border-2 border-zinc-800" />}
+                        <span className="sr-only">Select color {c}</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{colorNames[c]}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
             </div>
-          )}
 
-          <div>
-            <h3 className="text-sm font-medium mb-2">Width</h3>
-            <Slider
-              value={[width]}
-              min={1}
-              max={20}
-              step={1}
-              onValueChange={(value) => setWidth(value[0])}
-              className="w-full"
-            />
-          </div>
+            {/* Stroke Style Selector - Stage 3 feature */}
+            {tool !== "text" && tool !== "eraser" && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-2">Stroke Style</h3>
+                <div className="flex gap-2">
+                  {strokeStyles.map((style) => (
+                    <Tooltip key={style.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          className={`flex-1 py-2 px-2 rounded ${
+                            (strokeStyle || "solid") === style.id 
+                              ? "bg-blue-500 text-white" 
+                              : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                          }`}
+                          onClick={() => setStrokeStyle(style.id)}
+                        >
+                          <div className="flex items-center justify-center">
+                            <style.Icon className="text-2xl" />
+                          </div>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{style.id.charAt(0).toUpperCase() + style.id.slice(1)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-sm font-medium mb-2">Width</h3>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Slider
+                    value={[width]}
+                    min={1}
+                    max={20}
+                    step={1}
+                    onValueChange={(value) => setWidth(value[0])}
+                    className="w-full"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Pen width: {width}px</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       )}
     </>
