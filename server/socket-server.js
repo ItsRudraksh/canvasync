@@ -280,6 +280,10 @@ io.on("connection", (socket) => {
   })
 })
 
+app.get("/test", (req, res) => {
+  res.json({ message: "Server is running!" })
+})
+
 const PORT = process.env.PORT || 3001
 
 httpServer.listen(PORT, () => {
