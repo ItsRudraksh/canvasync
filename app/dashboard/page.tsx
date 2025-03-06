@@ -78,24 +78,24 @@ export default async function Dashboard() {
         </div>
       </header>
       <main className="flex-1 p-4 md:p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Your Whiteboards</h1>
-          <Link href="/whiteboard/new">
-            <Button>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-bold sm:text-2xl">Your Whiteboards</h1>
+          <Link href="/whiteboard/new" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" />
               New Whiteboard
             </Button>
           </Link>
         </div>
-        <Tabs defaultValue="my-whiteboards" className="mt-8">
-          <TabsList>
-            <TabsTrigger value="my-whiteboards">My Whiteboards</TabsTrigger>
-            <TabsTrigger value="public-whiteboards">Public Whiteboards</TabsTrigger>
+        <Tabs defaultValue="my-whiteboards" className="mt-6 sm:mt-8">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="my-whiteboards" className="flex-1 sm:flex-none">My Whiteboards</TabsTrigger>
+            <TabsTrigger value="public-whiteboards" className="flex-1 sm:flex-none">Public Whiteboards</TabsTrigger>
           </TabsList>
-          <TabsContent value="my-whiteboards">
+          <TabsContent value="my-whiteboards" className="mt-4 sm:mt-6">
             <WhiteboardList whiteboards={myWhiteboards} showOwner={false} />
           </TabsContent>
-          <TabsContent value="public-whiteboards">
+          <TabsContent value="public-whiteboards" className="mt-4 sm:mt-6">
             <WhiteboardList whiteboards={publicWhiteboards} showOwner={true} />
           </TabsContent>
         </Tabs>

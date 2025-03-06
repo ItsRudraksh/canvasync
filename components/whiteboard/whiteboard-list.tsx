@@ -78,28 +78,28 @@ export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardLis
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {whiteboards.map((whiteboard) => (
           <Card key={whiteboard.id} className="hover:bg-muted/50 transition-colors">
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {whiteboard.title}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="flex items-center gap-2 truncate">
+                    <span className="truncate">{whiteboard.title}</span>
                     {whiteboard.isPublic ? (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <Globe className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     ) : (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <Lock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     )}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="truncate">
                     Last updated {formatDistanceToNow(new Date(whiteboard.updatedAt), { addSuffix: true })}
                     {showOwner && ` • By ${whiteboard.user.name}`}
                   </CardDescription>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
+                    <Button variant="ghost" className="h-8 w-8 flex-shrink-0 p-0">
                       <span className="sr-only">Open menu</span>
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
@@ -123,10 +123,10 @@ export function WhiteboardList({ whiteboards, showOwner = false }: WhiteboardLis
               </div>
             </CardHeader>
             {!showOwner && (
-              <CardFooter className="flex justify-between items-center">
+              <CardFooter className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                 <ShareButton whiteboardId={whiteboard.id} />
-                <Link href={`/whiteboard/${whiteboard.id}`}>
-                  <Button variant="secondary">
+                <Link href={`/whiteboard/${whiteboard.id}`} className="w-full sm:w-auto">
+                  <Button variant="secondary" className="w-full sm:w-auto">
                     <Edit className="mr-2 h-4 w-4" />
                     Open
                   </Button>
