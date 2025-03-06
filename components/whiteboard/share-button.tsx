@@ -39,8 +39,26 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
   const [collaboratorEmail, setCollaboratorEmail] = useState("")
   const [canEdit, setCanEdit] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [collaborators, setCollaborators] = useState<any[]>([])
 
-  // Fetch initial whiteboard state
+  // Disable keyboard shortcuts when dialog is open
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isOpen) {
+        e.stopPropagation()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown, true)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [isOpen])
+
+  // Fetch initial whiteboard state and collaborators
   useEffect(() => {
     const fetchWhiteboard = async () => {
       try {
@@ -48,6 +66,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
         if (!response.ok) throw new Error("Failed to fetch whiteboard")
         const data = await response.json()
         setIsPublic(data.isPublic)
+        setCollaborators(data.collaborators || [])
       } catch (error) {
         console.error("Error fetching whiteboard:", error)
       }
@@ -126,11 +145,15 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
         throw new Error(data.message || "Failed to add collaborator")
       }
 
+      const newCollaborator = await response.json()
+      setCollaborators(prev => [...prev, newCollaborator])
+
       toast({
         title: "Collaborator added",
         description: `${collaboratorEmail} has been added as a collaborator`,
       })
       setCollaboratorEmail("")
+      setCanEdit(false)
     } catch (error: any) {
       console.error("Error adding collaborator:", error)
       toast({
@@ -238,7 +261,11 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
                   </Button>
                 </div>
               </form>
-              <CollaboratorList whiteboardId={whiteboardId} />
+              <CollaboratorList 
+                whiteboardId={whiteboardId} 
+                collaborators={collaborators}
+                setCollaborators={setCollaborators}
+              />
             </div>
           </TabsContent>
         </Tabs>

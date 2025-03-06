@@ -31,42 +31,42 @@ export default function LandingPage() {
       <HeroSection />
 
       {/* 3D Card Feature Section */}
-      <section className="container mx-auto px-4 py-24">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold mb-4">Experience the Future of Digital Whiteboards</h2>
+      <section className="container mx-auto px-4 py-12 md:py-24">
+        <div className="text-center mb-8 md:mb-16">
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">Experience the Future of Digital Whiteboards</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             CanvaSync combines powerful tools with an intuitive interface to transform how you collaborate and create.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          <div className="h-[450px] w-full relative">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 items-center">
+          <div className="h-[400px] md:h-[450px] w-full relative">
             <Card3D containerClassName="w-full h-full">
-              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-8 text-white relative">
+              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 md:p-8 text-white relative">
                 <CardItem
                   translateZ={50}
-                  className="text-3xl font-bold mb-4 relative w-full"
+                  className="text-2xl md:text-3xl font-bold mb-4 relative w-full"
                 >
                   Unleash Your Creativity
                 </CardItem>
 
                 <CardItem
                   translateZ={60}
-                  className="text-lg mb-8 relative w-full"
+                  className="text-base md:text-lg mb-6 md:mb-8 relative w-full"
                 >
                   Our infinite canvas gives you the freedom to express your ideas without constraints.
                 </CardItem>
 
                 <CardItem
                   translateZ={80}
-                  className="w-full h-40 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center relative"
+                  className="w-full h-32 md:h-40 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center relative"
                 >
-                  <Palette className="h-16 w-16 text-white" />
+                  <Palette className="h-12 w-12 md:h-16 md:w-16 text-white" />
                 </CardItem>
 
                 <CardItem
                   translateZ={30}
-                  className="text-sm mt-8 relative w-full"
+                  className="text-sm mt-6 md:mt-8 relative w-full"
                 >
                   Powerful drawing tools, smart shapes, and intuitive controls make creation effortless.
                 </CardItem>
@@ -74,33 +74,33 @@ export default function LandingPage() {
             </Card3D>
           </div>
 
-          <div className="h-[450px] w-full relative">
+          <div className="h-[400px] md:h-[450px] w-full relative">
             <Card3D containerClassName="w-full h-full">
-              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-pink-500 to-orange-500 p-8 text-white relative">
+              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-pink-500 to-orange-500 p-6 md:p-8 text-white relative">
                 <CardItem
                   translateZ={50}
-                  className="text-3xl font-bold mb-4 relative w-full"
+                  className="text-2xl md:text-3xl font-bold mb-4 relative w-full"
                 >
                   Collaborate in Real-Time
                 </CardItem>
 
                 <CardItem
                   translateZ={60}
-                  className="text-lg mb-8 relative w-full"
+                  className="text-base md:text-lg mb-6 md:mb-8 relative w-full"
                 >
                   Work together with your team no matter where they are located.
                 </CardItem>
 
                 <CardItem
                   translateZ={80}
-                  className="w-full h-40 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center relative"
+                  className="w-full h-32 md:h-40 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center relative"
                 >
-                  <Users className="h-16 w-16 text-white" />
+                  <Users className="h-12 w-12 md:h-16 md:w-16 text-white" />
                 </CardItem>
 
                 <CardItem
                   translateZ={30}
-                  className="text-sm mt-8 relative w-full"
+                  className="text-sm mt-6 md:mt-8 relative w-full"
                 >
                   Multiple users can edit, comment, and interact simultaneously with zero lag.
                 </CardItem>

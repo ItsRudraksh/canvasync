@@ -23,7 +23,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, children, breadcrumbs }: PageHeaderProps) {
   return (
-    <header className="flex flex-col border-b bg-background">
+    <header className="flex flex-col border-b bg-background py-2">
       {breadcrumbs && (
         <div className="md:hidden px-4 py-2 border-b">
           <Breadcrumb>
@@ -34,7 +34,7 @@ export function PageHeader({ title, children, breadcrumbs }: PageHeaderProps) {
                 </BreadcrumbLink>
               </BreadcrumbItem>
               {breadcrumbs.map((crumb, index) => (
-                <>
+                <ol key={index} className="flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5">
                   <BreadcrumbSeparator />
                   <BreadcrumbItem key={index}>
                     {crumb.href ? (
@@ -47,7 +47,7 @@ export function PageHeader({ title, children, breadcrumbs }: PageHeaderProps) {
                       </BreadcrumbPage>
                     )}
                   </BreadcrumbItem>
-                </>
+                </ol>
               ))}
             </BreadcrumbList>
           </Breadcrumb>

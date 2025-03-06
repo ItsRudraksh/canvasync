@@ -20,37 +20,13 @@ interface Collaborator {
 
 interface CollaboratorListProps {
   whiteboardId: string
+  collaborators: Collaborator[]
+  setCollaborators: (collaborators: Collaborator[]) => void
 }
 
-export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
+export function CollaboratorList({ whiteboardId, collaborators, setCollaborators }: CollaboratorListProps) {
   const { toast } = useToast()
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchCollaborators = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch(`/api/whiteboards/${whiteboardId}`)
-        if (!response.ok) {
-          throw new Error("Failed to fetch whiteboard")
-        }
-        const data = await response.json()
-        setCollaborators(data.collaborators || [])
-      } catch (error) {
-        console.error("Error fetching collaborators:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load collaborators",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchCollaborators()
-  }, [whiteboardId, toast])
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
     try {
@@ -62,7 +38,7 @@ export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
         throw new Error("Failed to remove collaborator")
       }
 
-      setCollaborators((prev) => prev.filter((c) => c.id !== collaboratorId))
+      setCollaborators(collaborators.filter((c) => c.id !== collaboratorId))
 
       toast({
         title: "Collaborator removed",
@@ -98,9 +74,7 @@ export function CollaboratorList({ whiteboardId }: CollaboratorListProps) {
       }
 
       const updatedCollaborator = await response.json()
-      setCollaborators((prev) =>
-        prev.map((c) => (c.id === collaboratorId ? updatedCollaborator : c))
-      )
+      setCollaborators(collaborators.map((c) => (c.id === collaboratorId ? updatedCollaborator : c)))
 
       toast({
         title: "Permissions updated",
