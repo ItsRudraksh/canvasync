@@ -3076,31 +3076,41 @@ export function WhiteboardEditor({
       setTouchStartDistance(distance);
       setTouchStartZoom(zoomLevel);
       setTouchStartMidpoint(midpoint);
+      
+      // Set start pan point for two-finger pan
+      setStartPanPoint(midpoint);
+      setIsDragging(true);
     } else if (e.touches.length === 1) {
       const touch = e.touches[0];
       const { x, y } = screenToCanvasCoordinates(touch.clientX, touch.clientY);
       
-      // Store the initial touch position
+      // Store the initial touch position and time
       setDragStartPoint({ x, y });
+      setTouchStartTime(Date.now());
 
-      // Only enable long-press area selection for select tool
-      if (tool === "select") {
-        const touchedShape = shapes.find(shape => {
-          if (shape.selected || shape.multiSelected) {
-            const bounds = getShapeBounds(shape);
-            return (
-              x >= bounds.x1 &&
-              x <= bounds.x2 &&
-              y >= bounds.y1 &&
-              y <= bounds.y2
-            );
-          }
-          return false;
-        });
+      // Find if we're touching a selected shape
+      const touchedShape = shapes.find(shape => {
+        if (shape.selected || shape.multiSelected) {
+          const bounds = getShapeBounds(shape);
+          return (
+            x >= bounds.x1 &&
+            x <= bounds.x2 &&
+            y >= bounds.y1 &&
+            y <= bounds.y2
+          );
+        }
+        return false;
+      });
 
-        if (!touchedShape) {
-          setTouchStartTime(Date.now());
-          longPressTimeoutRef.current = setTimeout(() => {
+      // Set up long press timer
+      longPressTimeoutRef.current = setTimeout(() => {
+        if (tool === "select") {
+          if (touchedShape || clipboardShapes.length > 0) {
+            // Show context menu for copy/paste
+            setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
+            setShowMobileContextMenu(true);
+          } else {
+            // Start area selection
             setIsAreaSelecting(true);
             setSelectionBox({
               start: { x, y },
@@ -3118,102 +3128,17 @@ export function WhiteboardEditor({
             }));
             
             setShapes(updatedShapes);
-          }, 500);
-        } else {
-          // Start dragging the touched shape
-          setIsDragging(true);
+          }
         }
-      } else if (tool === "hand") {
-        setIsDragging(true);
-        setStartPanPoint({ x: touch.clientX, y: touch.clientY });
-      } else {
-        // For all other tools (pen, shapes, etc.), start drawing immediately
-        setIsDrawing(true);
-        
-        const newShape: Shape = {
-          id: nanoid(),
-          tool,
-          points: [{ x, y }],
-          color,
-          width,
-          strokeStyle,
-          selected: false,
-          ...(document.body.classList.contains("app-stage-3") ? {
-            fillStyle: "transparent",
-            fillOpacity: undefined,
-          } : {}),
-          ...(tool === "curved-arrow" ? {
-            controlPoint: {
-              x: x,
-              y: y - 50
-            }
-          } : {})
-        };
-        
-        setCurrentShape(newShape);
-        
-        socket?.emit("draw-start", {
-          whiteboardId: id,
-          instanceId,
-          shape: newShape,
-        });
-      }
+      }, 500);
     }
-  }, [zoomLevel, tool, shapes, screenToCanvasCoordinates, getShapeBounds, id, instanceId, socket, color, width, strokeStyle]);
+  }, [
+    zoomLevel, shapes, screenToCanvasCoordinates, getShapeBounds,
+    clipboardShapes, tool
+  ]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!e.touches[0]) return;
-    
-    const touch = e.touches[0];
-    const { x, y } = screenToCanvasCoordinates(touch.clientX, touch.clientY);
-    
-    // If we have a long press timer and the touch has moved significantly
-    if (longPressTimeoutRef.current && touchStartTime && dragStartPoint) {
-      const moveThreshold = 10; // pixels
-      
-      // Calculate movement distance
-      const dx = x - dragStartPoint.x;
-      const dy = y - dragStartPoint.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // If moved more than threshold, cancel long press and start area selection
-      if (distance > moveThreshold) {
-        clearTimeout(longPressTimeoutRef.current);
-        setShowMobileContextMenu(false);
-        
-        // Start area selection
-        setIsAreaSelecting(true);
-        setSelectionBox({
-          start: dragStartPoint,
-          end: { x, y }
-        });
-        
-        // Clear any existing selections
-        setSelectedShape(null);
-        setMultiSelectedShapes([]);
-        
-        const updatedShapes = shapes.map(s => ({ 
-          ...s, 
-          selected: false,
-          multiSelected: false 
-        }));
-        
-        setShapes(updatedShapes);
-      }
-    }
-    
-    // Update selection box if we're area selecting
-    if (isAreaSelecting && selectionBox) {
-      setSelectionBox({
-        ...selectionBox,
-        end: { x, y }
-      });
-      return;
-    }
-
-    // Handle pinch-to-zoom and pan
-    if (e.touches.length === 2 && touchStartDistance && touchStartZoom && touchStartMidpoint) {
-      // Prevent default to avoid unwanted scrolling/zooming
+    if (e.touches.length === 2) {
       e.preventDefault();
       
       // Calculate new distance between touch points
@@ -3228,25 +3153,55 @@ export function WhiteboardEditor({
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2
       };
       
-      // Calculate scale factor based on the change in distance
-      const scale = distance / touchStartDistance;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * scale));
+      if (touchStartDistance && touchStartZoom && touchStartMidpoint) {
+        // Handle pinch zoom
+        const scale = distance / touchStartDistance;
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * scale));
+        setZoomLevel(newZoom);
+        
+        // Handle two-finger pan
+        if (isDragging && startPanPoint) {
+          const dx = currentMidpoint.x - startPanPoint.x;
+          const dy = currentMidpoint.y - startPanPoint.y;
+          setPanOffset(prev => ({
+            x: prev.x + dx,
+            y: prev.y + dy
+          }));
+          setStartPanPoint(currentMidpoint);
+        }
+      }
+    } else if (e.touches.length === 1 && !isPinching) {
+      const touch = e.touches[0];
+      const { x, y } = screenToCanvasCoordinates(touch.clientX, touch.clientY);
       
-      // Calculate pan offset based on midpoint movement
-      const dx = currentMidpoint.x - touchStartMidpoint.x;
-      const dy = currentMidpoint.y - touchStartMidpoint.y;
+      // If we have a long press timer and the touch has moved significantly
+      if (longPressTimeoutRef.current && touchStartTime && dragStartPoint) {
+        const moveThreshold = 10; // pixels
+        const dx = x - dragStartPoint.x;
+        const dy = y - dragStartPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // If moved more than threshold, cancel long press and context menu
+        if (distance > moveThreshold) {
+          clearTimeout(longPressTimeoutRef.current);
+          setShowMobileContextMenu(false);
+          setContextMenuPosition(null);
+        }
+      }
       
-      // Update zoom and pan
-      setZoomLevel(newZoom);
-      setPanOffset(prev => ({
-        x: prev.x + dx,
-        y: prev.y + dy
-      }));
-      
-      // Update the start midpoint for the next move event
-      setTouchStartMidpoint(currentMidpoint);
+      // Update area selection if active
+      if (isAreaSelecting && selectionBox) {
+        setSelectionBox({
+          ...selectionBox,
+          end: { x, y }
+        });
+      }
     }
-  }, [touchStartDistance, touchStartZoom, touchStartMidpoint, touchStartTime, dragStartPoint, isAreaSelecting, selectionBox, shapes]);
+  }, [
+    touchStartDistance, touchStartZoom, touchStartMidpoint, touchStartTime,
+    dragStartPoint, isAreaSelecting, selectionBox, isDragging, startPanPoint,
+    isPinching, screenToCanvasCoordinates
+  ]);
 
   const handleTouchEnd = useCallback(() => {
     // Clear long press timer
@@ -3256,16 +3211,13 @@ export function WhiteboardEditor({
     
     // Handle area selection completion
     if (isAreaSelecting && selectionBox) {
-      // Calculate the selection box bounds
       const x1 = Math.min(selectionBox.start.x, selectionBox.end.x);
       const y1 = Math.min(selectionBox.start.y, selectionBox.end.y);
       const x2 = Math.max(selectionBox.start.x, selectionBox.end.x);
       const y2 = Math.max(selectionBox.start.y, selectionBox.end.y);
       
-      // Find all shapes that intersect with the selection box
       const selectedShapes = shapes.filter(shape => {
         const bounds = getShapeBounds(shape);
-        // Check if shape bounds intersect with selection box
         return (
           bounds.x2 >= x1 && 
           bounds.x1 <= x2 && 
@@ -3274,22 +3226,17 @@ export function WhiteboardEditor({
         );
       });
       
-      // Mark selected shapes
       if (selectedShapes.length > 0) {
-        const updatedShapes = shapes.map(shape => {
-          const isSelected = selectedShapes.some(s => s.id === shape.id);
-          return {
-            ...shape,
-            selected: false, // Clear single selection
-            multiSelected: isSelected // Set multi-selection
-          };
-        });
+        const updatedShapes = shapes.map(shape => ({
+          ...shape,
+          selected: false,
+          multiSelected: selectedShapes.some(s => s.id === shape.id)
+        }));
         
         setShapes(updatedShapes);
         setMultiSelectedShapes(selectedShapes);
         setSelectedShape(null);
         
-        // Emit socket event for shape update
         socket?.emit("shape-update", {
           whiteboardId: id,
           instanceId,
@@ -3298,7 +3245,6 @@ export function WhiteboardEditor({
         });
       }
       
-      // Clear selection box and area selecting state
       setSelectionBox(null);
       setIsAreaSelecting(false);
     }
@@ -3308,13 +3254,19 @@ export function WhiteboardEditor({
       setContextMenuPosition(null);
     }
     
+    // Reset all touch-related states
     setTouchStartTime(null);
     setTouchStartDistance(null);
     setTouchStartZoom(null);
     setTouchStartMidpoint(null);
     setIsPinching(false);
+    setIsDragging(false);
+    setStartPanPoint(null);
     setDragStartPoint(null);
-  }, [showMobileContextMenu, isAreaSelecting, selectionBox, shapes, getShapeBounds, id, instanceId, socket]);
+  }, [
+    isAreaSelecting, selectionBox, shapes, getShapeBounds,
+    id, instanceId, socket, showMobileContextMenu
+  ]);
 
   const handleMobilePaste = useCallback(() => {
     if (contextMenuPosition && clipboardShapes.length > 0) {

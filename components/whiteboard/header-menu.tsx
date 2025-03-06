@@ -1,6 +1,7 @@
 "use client"
 
-import { Menu, Keyboard } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Menu, Keyboard, Smartphone } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,13 +12,20 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog"
+import { MobileTips } from "./mobile-tips"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useState } from "react"
 
 interface HeaderMenuProps {
   onExport: () => void
@@ -26,7 +34,21 @@ interface HeaderMenuProps {
 }
 
 export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: HeaderMenuProps) {
-  const [isKeyboardDialogOpen, setIsKeyboardDialogOpen] = useState(false);
+  const [isKeyboardDialogOpen, setIsKeyboardDialogOpen] = useState(false)
+  const [isMobileTipsOpen, setIsMobileTipsOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768 || 'ontouchstart' in window)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   return (
     <div className="flex items-center gap-1">
@@ -51,23 +73,42 @@ export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: Heade
               variant="ghost" 
               size="icon" 
               className="hidden md:flex" 
-              data-keyboard-shortcuts-trigger
-              onClick={() => setIsKeyboardDialogOpen(true)}
+              onClick={() => isMobile ? setIsMobileTipsOpen(true) : setIsKeyboardDialogOpen(true)}
             >
-              <Keyboard className="h-5 w-5" />
-              <span className="sr-only">Keyboard Shortcuts</span>
+              {isMobile ? (
+                <Smartphone className="h-5 w-5" />
+              ) : (
+                <Keyboard className="h-5 w-5" />
+              )}
+              <span className="sr-only">
+                {isMobile ? "Mobile Tips" : "Keyboard Shortcuts"}
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p>Keyboard Shortcuts</p>
+            <p>{isMobile ? "Mobile Tips" : "Keyboard Shortcuts"}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
       
+      {/* Keyboard Shortcuts Dialog for Desktop */}
       <KeyboardShortcutsDialog 
-        isOpen={isKeyboardDialogOpen}
+        isOpen={!isMobile && isKeyboardDialogOpen}
         onOpenChange={setIsKeyboardDialogOpen}
       />
+
+      {/* Mobile Tips Dialog */}
+      <Dialog open={isMobile && isMobileTipsOpen} onOpenChange={setIsMobileTipsOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mobile Gestures Guide</DialogTitle>
+            <DialogDescription>
+              Learn how to use touch gestures to interact with the whiteboard
+            </DialogDescription>
+          </DialogHeader>
+          <MobileTips />
+        </DialogContent>
+      </Dialog>
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -86,10 +127,10 @@ export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: Heade
             Export Whiteboard
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={() => setIsKeyboardDialogOpen(true)}
+            onClick={() => isMobile ? setIsMobileTipsOpen(true) : setIsKeyboardDialogOpen(true)}
             className="md:hidden"
           >
-            Keyboard Shortcuts
+            {isMobile ? "Mobile Tips" : "Keyboard Shortcuts"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
