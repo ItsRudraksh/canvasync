@@ -53,7 +53,9 @@ export function KeyboardShortcutsDialog({
         { keys: ["Ctrl/Cmd", "R"], description: "Redo" },
         { keys: ["Ctrl/Cmd", "C"], description: "Copy selected shape(s)" },
         { keys: ["Ctrl/Cmd", "V"], description: "Paste copied shape(s)" },
+        { keys: ["Ctrl/Cmd", "X"], description: "Clear clipboard" },
         { keys: ["Ctrl/Cmd", "A"], description: "Select all shapes" },
+        { keys: ["Escape"], description: "Deselect all shapes" },
         { keys: ["X"], description: "Clear canvas" },
         { keys: ["Delete"], description: "Delete selected shape(s)" },
       ]

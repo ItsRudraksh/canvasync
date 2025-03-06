@@ -1680,6 +1680,12 @@ export function WhiteboardEditor({
       handlePaste();
     }
     
+    // Clear Clipboard: Ctrl/Cmd+X
+    if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+      e.preventDefault();
+      handleClearClipboard();
+    }
+    
     // Select All: Ctrl/Cmd+A
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
       e.preventDefault();
@@ -1755,6 +1761,30 @@ export function WhiteboardEditor({
         
         // Add to history
         addToHistory(updatedShapes);
+      }
+    }
+
+    // Escape key to deselect everything
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      
+      // Clear single selection
+      if (selectedShape) {
+        setSelectedShape(null);
+      }
+      
+      // Clear multi-selection
+      if (multiSelectedShapes.length > 0) {
+        const updatedShapes = shapes.map(shape => ({
+          ...shape,
+          multiSelected: false
+        }));
+        
+        setShapes(updatedShapes);
+        setMultiSelectedShapes([]);
+        
+        // Save canvas state
+        saveCanvasState(updatedShapes);
       }
     }
 
@@ -1835,7 +1865,7 @@ export function WhiteboardEditor({
         setTool('diamond');
       }
     }
-  }, [activeTextEditor, handleCopy, handlePaste, handleUndo, handleRedo, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom, isReadOnly, clearCanvas]);
+  }, [activeTextEditor, handleCopy, handlePaste, handleUndo, handleRedo, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom, isReadOnly, clearCanvas, handleClearClipboard]);
 
   // Add keyboard event listener
   useEffect(() => {
