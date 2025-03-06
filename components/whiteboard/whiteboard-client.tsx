@@ -35,7 +35,7 @@ export function WhiteboardClient({
         title={whiteboard.title}
         breadcrumbs={[{ label: whiteboard.title }]}
       >
-        <div className="flex items-center gap-4 w-full justify-between">
+        <div className="flex items-center gap-2 w-full justify-between">
           <UserCounts 
             whiteboardId={whiteboard.id} 
             canEdit={isOwner || isCollaborator} 

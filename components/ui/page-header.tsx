@@ -53,11 +53,11 @@ export function PageHeader({ title, children, breadcrumbs }: PageHeaderProps) {
           </Breadcrumb>
         </div>
       )}
-      <div className="flex h-16 items-center justify-between px-4 md:px-6 py-3">
+      <div className="flex h-16 items-center gap-4 px-4 md:px-6 py-3">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold hidden md:block">{title}</h1>
-          {children}
         </div>
+          {children}
       </div>
     </header>
   )

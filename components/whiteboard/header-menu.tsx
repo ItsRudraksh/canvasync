@@ -29,9 +29,9 @@ export function HeaderMenu({ onExport, clipboardCount, onClearClipboard }: Heade
   const [isKeyboardDialogOpen, setIsKeyboardDialogOpen] = useState(false);
   
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1">
       {clipboardCount > 0 && (
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
+        <div className="text-sm text-muted-foreground flex items-center gap-1">
           <span>{clipboardCount} {clipboardCount === 1 ? 'shape' : 'shapes'} copied</span>
           <Button 
             variant="ghost" 
