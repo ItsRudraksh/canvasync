@@ -74,12 +74,32 @@ module.exports = {
           from: { height: "var(--radix-collapsible-content-height)", opacity: 1 },
           to: { height: 0, opacity: 0 },
         },
+        aurora: {
+          from: {
+            backgroundPosition: "50% 50%, 50% 50%",
+          },
+          to: {
+            backgroundPosition: "350% 50%, 350% 50%",
+          },
+        },
+        "border-move": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "collapsible-down": "collapsible-down 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         "collapsible-up": "collapsible-up 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        "aurora": "aurora 15s linear infinite",
+        "border-move": "border-move 8s ease infinite",
+      },
+      backgroundImage: {
+        "gradient-conic": "conic-gradient(var(--conic-position), var(--tw-gradient-stops))",
+      },
+      boxShadow: {
+        input: `0px 2px 3px -1px rgba(0,0,0,0.1), 0px 1px 0px 0px rgba(25,28,33,0.02), 0px 0px 0px 1px rgba(25,28,33,0.08)`,
       },
     },
   },

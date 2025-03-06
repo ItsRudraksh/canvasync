@@ -1,18 +1,10 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { AuthForm } from "@/components/auth-form"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -116,115 +108,23 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>
-            {showOtpInput 
-              ? "Enter the verification code sent to your email"
-              : "Enter your information to create an account"
-            }
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {!showOtpInput ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="John Doe" 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={handlePasswordChange}
-                    required
-                    className={cn(
-                      passwordErrors.length > 0 && "border-red-500 focus-visible:ring-red-500"
-                    )}
-                  />
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      Password must contain:
-                    </p>
-                    <ul className="text-sm text-muted-foreground list-disc list-inside">
-                      <li>At least 8 characters</li>
-                      <li>At least two uppercase letters</li>
-                      <li>At least two lowercase letters</li>
-                      <li>At least two numbers</li>
-                      <li>At least two special characters</li>
-                    </ul>
-                    {passwordErrors.length > 0 && (
-                      <div className="mt-2">
-                        {passwordErrors.map((error, index) => (
-                          <p key={index} className="text-sm text-red-500">
-                            • {error}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification Code</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                />
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading 
-                ? (showOtpInput ? "Verifying..." : "Creating account...") 
-                : (showOtpInput ? "Verify Email" : "Register")
-              }
-            </Button>
-            <div className="text-center text-sm">
-              Already have an account?{" "}
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Login
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center p-4 bg-white dark:bg-zinc-900">
+      <AuthForm
+        type="register"
+        onSubmit={handleSubmit}
+        error={error}
+        isLoading={isLoading}
+        email={email}
+        setEmail={setEmail}
+        password={password}
+        name={name}
+        setName={setName}
+        otp={otp}
+        setOtp={setOtp}
+        showOtpInput={showOtpInput}
+        passwordErrors={passwordErrors}
+        handlePasswordChange={handlePasswordChange}
+      />
     </div>
   )
 }
