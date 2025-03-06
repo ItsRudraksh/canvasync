@@ -3076,9 +3076,25 @@ export function WhiteboardEditor({
       setTouchStartDistance(distance);
       setTouchStartZoom(zoomLevel);
       setTouchStartMidpoint(midpoint);
-    } else if (e.touches.length === 1 && clipboardShapes.length > 0) {
+    } else if (e.touches.length === 1) {
       // Start timing for long press
       const touch = e.touches[0];
+      const { x, y } = screenToCanvasCoordinates(touch.clientX, touch.clientY);
+      
+      // Check if we're touching a selected shape or if we have clipboard shapes
+      const touchedShape = shapes.find(shape => {
+        if (shape.selected || shape.multiSelected) {
+          const bounds = getShapeBounds(shape);
+          return (
+            x >= bounds.x1 &&
+            x <= bounds.x2 &&
+            y >= bounds.y1 &&
+            y <= bounds.y2
+          );
+        }
+        return false;
+      });
+
       setTouchStartTime(Date.now());
       
       longPressTimeoutRef.current = setTimeout(() => {
@@ -3086,7 +3102,7 @@ export function WhiteboardEditor({
         setShowMobileContextMenu(true);
       }, 500); // 500ms for long press
     }
-  }, [zoomLevel, clipboardShapes.length]);
+  }, [zoomLevel, clipboardShapes.length, shapes, screenToCanvasCoordinates, getShapeBounds]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     // Clear long press timer if touch moves
@@ -3167,61 +3183,86 @@ export function WhiteboardEditor({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      const rect = canvas.getBoundingClientRect();
-      const { x, y } = screenToCanvasCoordinates(
+      // Calculate bounding box for all clipboard shapes
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      clipboardShapes.forEach(shape => {
+        const bounds = getShapeBounds(shape);
+        minX = Math.min(minX, bounds.x1);
+        minY = Math.min(minY, bounds.y1);
+        maxX = Math.max(maxX, bounds.x2);
+        maxY = Math.max(maxY, bounds.y2);
+      });
+
+      const groupCenterX = (minX + maxX) / 2;
+      const groupCenterY = (minY + maxY) / 2;
+
+      // Get the target paste position in canvas coordinates
+      const { x: targetX, y: targetY } = screenToCanvasCoordinates(
         contextMenuPosition.x,
         contextMenuPosition.y
       );
 
-      // Create copies of clipboard shapes at the touch position
-      const pastedShapes = clipboardShapes.map(shape => {
-        // Calculate the bounding box of the original shape
-        const bounds = getShapeBounds(shape);
-        const centerX = (bounds.x1 + bounds.x2) / 2;
-        const centerY = (bounds.y1 + bounds.y2) / 2;
+      // Calculate the offset from group center to paste position
+      const offsetX = targetX - groupCenterX;
+      const offsetY = targetY - groupCenterY;
 
-        // Calculate the offset to center the shape at the touch point
-        const offsetX = x - centerX;
-        const offsetY = y - centerY;
+      // Create copies of clipboard shapes maintaining their relative positions
+      const pastedShapes: Shape[] = clipboardShapes.map(shape => ({
+        ...shape,
+        id: nanoid(),
+        points: shape.points.map(point => ({
+          x: point.x + offsetX,
+          y: point.y + offsetY
+        })),
+        selected: false,
+        multiSelected: false,
+        ...(shape.controlPoint ? {
+          controlPoint: {
+            x: shape.controlPoint.x + offsetX,
+            y: shape.controlPoint.y + offsetY
+          }
+        } : {})
+      }));
 
-        return {
-          ...shape,
-          id: nanoid(),
-          points: shape.points.map(point => ({
-            x: point.x + offsetX,
-            y: point.y + offsetY
-          })),
-          selected: false,
-          multiSelected: false,
-          ...(shape.controlPoint ? {
-            controlPoint: {
-              x: shape.controlPoint.x + offsetX,
-              y: shape.controlPoint.y + offsetY
-            }
-          } : {})
-        };
-      });
-
-      setShapes([...shapes, ...pastedShapes]);
+      const updatedShapes = [...shapes, ...pastedShapes];
+      setShapes(updatedShapes);
       
       // Emit socket event for shape update
       socket?.emit("shape-update", {
         whiteboardId: id,
         instanceId,
-        shapes: [...shapes, ...pastedShapes]
+        shapes: updatedShapes
       });
       
       // Save canvas state
-      saveCanvasState([...shapes, ...pastedShapes]);
+      saveCanvasState(updatedShapes);
       
       // Add to history
-      addToHistory([...shapes, ...pastedShapes]);
+      addToHistory(updatedShapes);
     }
     
     // Hide the context menu
     setShowMobileContextMenu(false);
     setContextMenuPosition(null);
   }, [contextMenuPosition, clipboardShapes, shapes, id, instanceId, socket, saveCanvasState, addToHistory, screenToCanvasCoordinates, getShapeBounds]);
+
+  const handleCopySelectedShapes = useCallback(() => {
+    const shapesToCopy = shapes.filter(shape => shape.selected || shape.multiSelected);
+    if (shapesToCopy.length > 0) {
+      setClipboardShapes(shapesToCopy);
+      toast({
+        title: "Copied",
+        description: `${shapesToCopy.length} ${shapesToCopy.length === 1 ? 'shape' : 'shapes'} copied to clipboard`,
+        duration: 2000,
+      });
+    }
+    setShowMobileContextMenu(false);
+    setContextMenuPosition(null);
+  }, [shapes, toast]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
@@ -4015,12 +4056,22 @@ export function WhiteboardEditor({
             transform: 'translate(-50%, -50%)'
           }}
         >
-          <button
-            className="w-full px-4 py-2 text-sm text-white hover:bg-zinc-700 text-left"
-            onClick={handleMobilePaste}
-          >
-            Paste {clipboardShapes.length} {clipboardShapes.length === 1 ? 'shape' : 'shapes'}
-          </button>
+          {clipboardShapes.length > 0 && (
+            <button
+              className="w-full px-4 py-2 text-sm text-white hover:bg-zinc-700 text-left"
+              onClick={handleMobilePaste}
+            >
+              Paste {clipboardShapes.length} {clipboardShapes.length === 1 ? 'shape' : 'shapes'}
+            </button>
+          )}
+          {shapes.some(shape => shape.selected || shape.multiSelected) && (
+            <button
+              className="w-full px-4 py-2 text-sm text-white hover:bg-zinc-700 text-left"
+              onClick={handleCopySelectedShapes}
+            >
+              Copy {shapes.filter(shape => shape.selected || shape.multiSelected).length} {shapes.filter(shape => shape.selected || shape.multiSelected).length === 1 ? 'shape' : 'shapes'}
+            </button>
+          )}
         </div>
       )}
       
