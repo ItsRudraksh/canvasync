@@ -158,6 +158,7 @@ export function WhiteboardEditor({
   const [touchStartDistance, setTouchStartDistance] = useState<number | null>(null)
   const [touchStartZoom, setTouchStartZoom] = useState<number | null>(null)
   const [isPinching, setIsPinching] = useState(false)
+  const [touchStartMidpoint, setTouchStartMidpoint] = useState<Point | null>(null)
 
   // Add this useEffect to handle responsive behavior
   useEffect(() => {
@@ -3061,13 +3062,20 @@ export function WhiteboardEditor({
         e.touches[0].clientY - e.touches[1].clientY
       );
       
+      // Calculate initial midpoint
+      const midpoint = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+      
       setTouchStartDistance(distance);
       setTouchStartZoom(zoomLevel);
+      setTouchStartMidpoint(midpoint);
     }
   }, [zoomLevel]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (e.touches.length === 2 && touchStartDistance && touchStartZoom) {
+    if (e.touches.length === 2 && touchStartDistance && touchStartZoom && touchStartMidpoint) {
       // Prevent default to avoid unwanted scrolling/zooming
       e.preventDefault();
       
@@ -3077,21 +3085,36 @@ export function WhiteboardEditor({
         e.touches[0].clientY - e.touches[1].clientY
       );
       
+      // Calculate new midpoint
+      const currentMidpoint = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+      
       // Calculate scale factor based on the change in distance
       const scale = distance / touchStartDistance;
       const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * scale));
       
-      // Calculate the midpoint between the two touches
-      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      // Calculate pan offset based on midpoint movement
+      const dx = currentMidpoint.x - touchStartMidpoint.x;
+      const dy = currentMidpoint.y - touchStartMidpoint.y;
       
+      // Update zoom and pan
       setZoomLevel(newZoom);
+      setPanOffset(prev => ({
+        x: prev.x + dx,
+        y: prev.y + dy
+      }));
+      
+      // Update the start midpoint for the next move event
+      setTouchStartMidpoint(currentMidpoint);
     }
-  }, [touchStartDistance, touchStartZoom]);
+  }, [touchStartDistance, touchStartZoom, touchStartMidpoint]);
 
   const handleTouchEnd = useCallback(() => {
     setTouchStartDistance(null);
     setTouchStartZoom(null);
+    setTouchStartMidpoint(null);
     // Reset pinching state
     setIsPinching(false);
   }, []);
