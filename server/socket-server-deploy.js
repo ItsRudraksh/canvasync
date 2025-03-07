@@ -259,6 +259,10 @@ io.on("connection", (socket) => {
   })
 })
 
+app.get("/test", (req, res) => {
+  res.send("WebSocket server is running")
+})
+
 // Use PORT from environment or default to 8080
 const PORT = process.env.PORT || 8080
 httpServer.listen(PORT, () => {
