@@ -22,7 +22,7 @@ const SocketContext = createContext<SocketContextType>({
 function createSocketConnection() {
   // Get the WebSocket URL from environment variables or use a default
   // Replace with your actual deployed WebSocket server URL
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-server.fly.dev";
+  const SOCKET_URL = "https://canvasync-socket.up.railway.app";
   
   // Options for Socket.IO connection
   const options = {
@@ -71,7 +71,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         // Try connecting through HTTPS if we're on an HTTPS site
         if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
           // Get the current URL from the socket options
-          const currentUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-server.fly.dev";
+          const currentUrl = "https://canvasync-socket.up.railway.app";
           
           if (currentUrl.startsWith('http://')) {
             console.log("Switching to secure connection...");
