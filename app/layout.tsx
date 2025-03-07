@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SessionProvider } from "@/components/session-provider";
-import { SocketProvider } from "@/hooks/use-socket";
+import { SocketProvider } from "@/hooks/use-socket-deploy";
 import { StageSelector } from "@/components/stage-selector";
 
 const inter = Inter({ subsets: ["latin"] });

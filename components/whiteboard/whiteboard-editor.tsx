@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react"
-import { useSocket } from "@/hooks/use-socket"
+import { useSocket } from "@/hooks/use-socket-deploy"
 import { nanoid } from "nanoid"
 import { useTheme } from "next-themes"
 import { WhiteboardToolbar } from "./whiteboard-toolbar"

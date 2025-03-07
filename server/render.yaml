@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: whiteboard-socket-server
+    runtime: docker
+    repo: https://github.com/yourusername/whiteboard-app.git # Replace with your actual repository
+    region: ohio # Change to your preferred region
+    plan: free
+    branch: main
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: FRONTEND_URL
+        value: https://your-netlify-app.netlify.app # Replace with your Netlify URL 

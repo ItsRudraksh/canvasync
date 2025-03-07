@@ -1,0 +1,23 @@
+{
+  "name": "whiteboard-socket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for whiteboard application",
+  "main": "socket-server-deploy.js",
+  "scripts": {
+    "start": "node socket-server-deploy.js",
+    "dev": "nodemon socket-server-deploy.js"
+  },
+  "dependencies": {
+    "@prisma/client": "latest",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "prisma": "latest"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 

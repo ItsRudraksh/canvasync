@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Users, UserCheck, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useSocket } from "@/hooks/use-socket"
+import { useSocket } from "@/hooks/use-socket-deploy"
 
 interface UserCountsProps {
   whiteboardId: string
