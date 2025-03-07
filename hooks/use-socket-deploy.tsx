@@ -22,7 +22,7 @@ const SocketContext = createContext<SocketContextType>({
 function createSocketConnection() {
   // Get the WebSocket URL from environment variables or use a default
   // Replace with your actual deployed WebSocket server URL
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://canvasync-socket.up.railway.app";
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-url";
   
   // Options for Socket.IO connection
   const options = {
@@ -74,7 +74,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         // Try connecting through HTTPS if we're on an HTTPS site
         if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
           // Get the current URL from the socket options
-          const currentUrl = "https://canvasync-socket.up.railway.app";
+          const currentUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-url";
           
           if (currentUrl.startsWith('http://')) {
             console.log("Switching to secure connection...");
@@ -132,8 +132,8 @@ export const isDevelopment = () => {
 // Helper function to get the appropriate WebSocket URL based on environment
 export const getSocketUrl = () => {
   if (isDevelopment()) {
-    return process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+    return process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8080";
   } else {
-    return process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-server.fly.dev";
+    return process.env.NEXT_PUBLIC_SOCKET_URL || "https://your-deployed-socket-url";
   }
 }; 
