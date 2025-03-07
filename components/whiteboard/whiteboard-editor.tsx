@@ -150,7 +150,7 @@ export function WhiteboardEditor({
   const { toast } = useToast()
   
   const [editingZoom, setEditingZoom] = useState(false);
-  const [zoomInput, setZoomInput] = useState('');
+  const [zoomInput, setZoomInput] = useState("");
 
   // Add this near the other state declarations
   const [isDesktop, setIsDesktop] = useState(false);
@@ -194,6 +194,9 @@ export function WhiteboardEditor({
   };
 
   const handleZoomInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent propagation to stop keyboard shortcuts from triggering
+    e.stopPropagation();
+    
     if (e.key === 'Enter') {
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
@@ -1706,6 +1709,9 @@ export function WhiteboardEditor({
   
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip if we're editing zoom input
+    if (editingZoom) return;
+    
     if (e.ctrlKey || e.metaKey) {
       if (e.key === '=' || e.key === '+') {
         e.preventDefault();
@@ -1910,7 +1916,7 @@ export function WhiteboardEditor({
         setTool('diamond');
       }
     }
-  }, [activeTextEditor, handleCopy, handlePaste, handleUndo, handleRedo, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom, isReadOnly, clearCanvas, handleClearClipboard]);
+  }, [activeTextEditor, handleCopy, handlePaste, handleUndo, handleRedo, id, instanceId, multiSelectedShapes, saveCanvasState, selectedShape, shapes, socket, addToHistory, handleZoom, isReadOnly, clearCanvas, handleClearClipboard, editingZoom]);
 
   // Add keyboard event listener
   useEffect(() => {
@@ -1923,6 +1929,7 @@ export function WhiteboardEditor({
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (isReadOnly) return;
       if(document.body.classList.contains("app-stage-2")) return;
+      if(tool === "hand" || tool === "area-select" || tool === "eraser") return;
       
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -3878,7 +3885,7 @@ export function WhiteboardEditor({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+                      className="mt-1 bg-blue-500 hover:bg-blue-600 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors mr-2"
                       onClick={() => {
                         // Set the shape to editing mode
                         const updatedShapes = shapes.map(shape => {
