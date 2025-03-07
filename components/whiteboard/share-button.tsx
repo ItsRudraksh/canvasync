@@ -26,7 +26,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { MobileTips } from "./mobile-tips"
 
 interface ShareButtonProps {
   whiteboardId: string
@@ -173,9 +172,9 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Share className="h-5 w-5" />
-                <span className="sr-only">Share</span>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Share className="h-4 w-4 mr-2" />
+                <span>Share</span>
               </Button>
             </DialogTrigger>
           </TooltipTrigger>

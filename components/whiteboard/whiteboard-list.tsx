@@ -28,9 +28,15 @@ interface WhiteboardListProps {
   })[];
   showOwner?: boolean;
   showAccessLevel?: boolean;
+  listType?: "my" | "shared" | "public";
 }
 
-export function WhiteboardList({ whiteboards, showOwner = false, showAccessLevel = false }: WhiteboardListProps) {
+export function WhiteboardList({ 
+  whiteboards, 
+  showOwner = false, 
+  showAccessLevel = false,
+  listType = "my"
+}: WhiteboardListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -63,11 +69,13 @@ export function WhiteboardList({ whiteboards, showOwner = false, showAccessLevel
         <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
           <h2 className="mt-6 text-xl font-semibold">No whiteboards found</h2>
           <p className="mb-8 mt-2 text-center text-sm font-normal leading-6 text-muted-foreground">
-            {showOwner
-              ? "There are no public whiteboards available at the moment."
-              : "You haven&apos;t created any whiteboards yet. Create your first whiteboard to get started."}
+            {listType === "shared" 
+              ? "No whiteboards have been shared with you yet."
+              : listType === "public"
+                ? "There are no public whiteboards available at the moment."
+                : "You haven't created any whiteboards yet. Create your first whiteboard to get started."}
           </p>
-          {!showOwner && (
+          {listType === "my" && (
             <Link
               href="/whiteboard/new"
               className="relative inline-flex h-9 items-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"

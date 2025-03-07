@@ -8,6 +8,7 @@ import { db } from "@/lib/db"
 import { PlusCircle } from "lucide-react"
 import { WhiteboardList } from "@/components/whiteboard/whiteboard-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MobileTabs } from "@/components/dashboard/mobile-tabs"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -120,22 +121,33 @@ export default async function Dashboard() {
             </Button>
           </Link>
         </div>
-        <Tabs defaultValue="my-whiteboards" className="mt-6 sm:mt-8">
-          <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="my-whiteboards" className="flex-1 sm:flex-none">My Whiteboards</TabsTrigger>
-            <TabsTrigger value="shared-whiteboards" className="flex-1 sm:flex-none">Shared with Me</TabsTrigger>
-            <TabsTrigger value="public-whiteboards" className="flex-1 sm:flex-none">Public Whiteboards</TabsTrigger>
-          </TabsList>
-          <TabsContent value="my-whiteboards" className="mt-4 sm:mt-6">
-            <WhiteboardList whiteboards={myWhiteboards} showOwner={false} />
-          </TabsContent>
-          <TabsContent value="shared-whiteboards" className="mt-4 sm:mt-6">
-            <WhiteboardList whiteboards={sharedWhiteboards} showOwner={true} showAccessLevel={true} />
-          </TabsContent>
-          <TabsContent value="public-whiteboards" className="mt-4 sm:mt-6">
-            <WhiteboardList whiteboards={publicWhiteboards} showOwner={true} />
-          </TabsContent>
-        </Tabs>
+        
+        {/* Mobile Tabs */}
+        <MobileTabs 
+          myWhiteboards={myWhiteboards}
+          sharedWhiteboards={sharedWhiteboards}
+          publicWhiteboards={publicWhiteboards}
+        />
+        
+        {/* Desktop Tabs */}
+        <div className="hidden sm:block mt-8">
+          <Tabs defaultValue="my-whiteboards">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="my-whiteboards" className="flex-1 sm:flex-none">My Whiteboards</TabsTrigger>
+              <TabsTrigger value="shared-whiteboards" className="flex-1 sm:flex-none">Shared with Me</TabsTrigger>
+              <TabsTrigger value="public-whiteboards" className="flex-1 sm:flex-none">Public Whiteboards</TabsTrigger>
+            </TabsList>
+            <TabsContent value="my-whiteboards" className="mt-6">
+              <WhiteboardList whiteboards={myWhiteboards} showOwner={false} listType="my" />
+            </TabsContent>
+            <TabsContent value="shared-whiteboards" className="mt-6">
+              <WhiteboardList whiteboards={sharedWhiteboards} showOwner={true} showAccessLevel={true} listType="shared" />
+            </TabsContent>
+            <TabsContent value="public-whiteboards" className="mt-6">
+              <WhiteboardList whiteboards={publicWhiteboards} showOwner={true} listType="public" />
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
     </div>
   )
