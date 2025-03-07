@@ -1,11 +1,9 @@
 const { createServer } = require("http")
 const { Server } = require("socket.io")
 const express = require("express")
-const { PrismaClient } = require("@prisma/client")
 const cors = require('cors')
 
-// Initialize Prisma client
-const prisma = new PrismaClient()
+// Initialize Express app
 const app = express()
 
 // Add basic route for health check
