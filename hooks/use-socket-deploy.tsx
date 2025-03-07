@@ -22,15 +22,18 @@ const SocketContext = createContext<SocketContextType>({
 function createSocketConnection() {
   // Get the WebSocket URL from environment variables or use a default
   // Replace with your actual deployed WebSocket server URL
-  const SOCKET_URL = "https://canvasync-socket.up.railway.app";
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://canvasync-socket.up.railway.app";
   
   // Options for Socket.IO connection
   const options = {
-    transports: ["websocket"],
+    transports: ["websocket", "polling"], // Try both transports
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
+    timeout: 60000, // Increase timeout
+    forceNew: true, // Force a new connection
+    path: '/socket.io/' // Explicitly set the path
   };
 
   // Create the socket connection

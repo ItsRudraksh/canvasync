@@ -7,7 +7,12 @@ const cors = require('cors')
 const app = express()
 
 // Add basic route for health check
-app.use(cors())
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+
 app.get('/', (req, res) => {
   res.send('WebSocket server is running')
 })
@@ -18,10 +23,15 @@ const httpServer = createServer(app)
 // Configure Socket.IO with CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "*", // Allow all origins in development
+    origin: "*", // Allow all origins
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["*"]
   },
+  transports: ['websocket', 'polling'], // Support both WebSocket and polling
+  allowEIO3: true, // Allow Engine.IO v3 clients
+  pingTimeout: 60000, // Increase ping timeout
+  pingInterval: 25000 // Increase ping interval
 })
 
 // Store active whiteboards and their users
@@ -257,10 +267,6 @@ io.on("connection", (socket) => {
       }
     })
   })
-})
-
-app.get("/test", (req, res) => {
-  res.send("WebSocket server is running")
 })
 
 // Use PORT from environment or default to 8080
