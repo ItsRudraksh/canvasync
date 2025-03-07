@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SessionProvider } from "@/components/session-provider";
 import { SocketProvider } from "@/hooks/use-socket-deploy";
 import { StageSelector } from "@/components/stage-selector";
+import { WhiteboardProvider } from "@/components/providers/whiteboard-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -48,11 +49,13 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <SocketProvider>
-              <StageSelector />
-              {children}
-              <Toaster />
-            </SocketProvider>
+            <WhiteboardProvider>
+              <SocketProvider>
+                <StageSelector />
+                {children}
+                <Toaster />
+              </SocketProvider>
+            </WhiteboardProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>

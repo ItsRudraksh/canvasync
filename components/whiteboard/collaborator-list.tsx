@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 
 interface Collaborator {
   id: string
@@ -26,6 +27,7 @@ interface CollaboratorListProps {
 
 export function CollaboratorList({ whiteboardId, collaborators, setCollaborators }: CollaboratorListProps) {
   const { toast } = useToast()
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
@@ -39,6 +41,9 @@ export function CollaboratorList({ whiteboardId, collaborators, setCollaborators
       }
 
       setCollaborators(collaborators.filter((c) => c.id !== collaboratorId))
+      
+      // Mark whiteboards as updated after removing collaborator
+      markWhiteboardsUpdated()
 
       toast({
         title: "Collaborator removed",
@@ -75,6 +80,9 @@ export function CollaboratorList({ whiteboardId, collaborators, setCollaborators
 
       const updatedCollaborator = await response.json()
       setCollaborators(collaborators.map((c) => (c.id === collaboratorId ? updatedCollaborator : c)))
+      
+      // Mark whiteboards as updated after changing permissions
+      markWhiteboardsUpdated()
 
       toast({
         title: "Permissions updated",

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 
 interface WhiteboardFormProps {
   whiteboard: Whiteboard
@@ -16,6 +17,7 @@ interface WhiteboardFormProps {
 export function WhiteboardForm({ whiteboard }: WhiteboardFormProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
   const [isLoading, setIsLoading] = useState(false)
   const [title, setTitle] = useState(whiteboard.title)
   const [isPublic, setIsPublic] = useState(whiteboard.isPublic)
@@ -40,11 +42,13 @@ export function WhiteboardForm({ whiteboard }: WhiteboardFormProps) {
         throw new Error("Failed to update whiteboard")
       }
 
+      markWhiteboardsUpdated()
+
       toast({
         title: "Whiteboard updated",
         description: "Your whiteboard has been updated successfully",
       })
-      router.push(`/whiteboard/${whiteboard.id}`)
+      router.push("/dashboard")
     } catch (error) {
       console.error("Error updating whiteboard:", error)
       toast({
@@ -71,6 +75,8 @@ export function WhiteboardForm({ whiteboard }: WhiteboardFormProps) {
       if (!response.ok) {
         throw new Error("Failed to delete whiteboard")
       }
+
+      markWhiteboardsUpdated()
 
       toast({
         title: "Whiteboard deleted",

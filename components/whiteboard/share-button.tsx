@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
 import { CollaboratorList } from "./collaborator-list"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +34,7 @@ interface ShareButtonProps {
 
 export function ShareButton({ whiteboardId }: ShareButtonProps) {
   const { toast } = useToast()
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
   const [isOpen, setIsOpen] = useState(false)
   const [isPublic, setIsPublic] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -107,6 +109,9 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
       }
 
       setIsPublic(!isPublic)
+      // Mark whiteboards as updated after changing visibility
+      markWhiteboardsUpdated()
+      
       toast({
         title: isPublic ? "Whiteboard is now private" : "Whiteboard is now public",
         description: isPublic
@@ -147,6 +152,9 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
 
       const newCollaborator = await response.json()
       setCollaborators(prev => [...prev, newCollaborator])
+      
+      // Mark whiteboards as updated after adding collaborator
+      markWhiteboardsUpdated()
 
       toast({
         title: "Collaborator added",

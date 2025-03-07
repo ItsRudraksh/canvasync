@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 
 export default function NewWhiteboardPage() {
   const router = useRouter()
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
   const [title, setTitle] = useState("Untitled Whiteboard")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -34,6 +36,9 @@ export default function NewWhiteboardPage() {
         throw new Error(data.message || "Something went wrong")
       }
 
+      // Mark whiteboards as updated before navigating
+      markWhiteboardsUpdated()
+      
       router.push(`/whiteboard/${data.id}`)
     } catch (error) {
       console.error("Error creating whiteboard:", error)

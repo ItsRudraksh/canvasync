@@ -20,6 +20,7 @@ import {
 import { useRouter } from "next/navigation"
 import { ShareButton } from "./share-button"
 import { Whiteboard, User } from "@prisma/client"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 
 interface WhiteboardListProps {
   whiteboards: (Whiteboard & {
@@ -38,6 +39,7 @@ export function WhiteboardList({
   listType = "my"
 }: WhiteboardListProps) {
   const router = useRouter()
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -54,6 +56,7 @@ export function WhiteboardList({
         throw new Error("Failed to delete whiteboard")
       }
 
+      markWhiteboardsUpdated()
       router.refresh()
     } catch (error) {
       console.error("Error deleting whiteboard:", error)

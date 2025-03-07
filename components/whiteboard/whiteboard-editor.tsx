@@ -35,6 +35,7 @@ import { FaMinus, FaPlus  } from "react-icons/fa"
 import { ChevronDown } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useWhiteboardUpdates } from "@/components/providers/whiteboard-provider"
 
 interface Point {
   x: number
@@ -163,6 +164,8 @@ export function WhiteboardEditor({
   const [contextMenuPosition, setContextMenuPosition] = useState<Point | null>(null)
   const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [touchStartTime, setTouchStartTime] = useState<number | null>(null)
+
+  const { markWhiteboardsUpdated } = useWhiteboardUpdates()
 
   // Add this useEffect to handle responsive behavior
   useEffect(() => {
@@ -1148,11 +1151,14 @@ export function WhiteboardEditor({
         await axios.post(`/api/whiteboards/${id}`, {
           content: JSON.stringify(shapesToSave),
         });
+        
+        // Mark whiteboards as updated after successful save
+        markWhiteboardsUpdated();
       } catch (error) {
         console.error("Failed to save whiteboard state:", error);
       }
     },
-    [id]
+    [id, markWhiteboardsUpdated]
   );
 
   // Add to history
