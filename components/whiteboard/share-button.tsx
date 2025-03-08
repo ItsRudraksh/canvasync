@@ -239,7 +239,7 @@ export function ShareButton({ whiteboardId }: ShareButtonProps) {
           <TabsContent value="collaborators" className="mt-4 overflow-y-auto max-h-[60vh]">
             <div className="space-y-4">
               <form onSubmit={handleAddCollaborator} className="space-y-3">
-                <div className="space-y-2">
+                <div className="space-y-2 px-1">
                   <Label htmlFor="email" className="text-sm">Add Collaborator</Label>
                   <Input
                     id="email"

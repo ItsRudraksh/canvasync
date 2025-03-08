@@ -743,7 +743,7 @@ export function WhiteboardEditor({
         
         // Set fixed line width for selection outline
         ctx.lineWidth = 2;
-        ctx.strokeStyle = "#00ff00"
+        ctx.strokeStyle = "#4285f4" // Use Google blue for consistency
         ctx.setLineDash([5, 5])
         
         // Get shape bounds
@@ -759,22 +759,30 @@ export function WhiteboardEditor({
         
         // Draw resize handles if shape is selected
         if (shape.selected) {
-          ctx.fillStyle = "#00ff00";
+          ctx.fillStyle = "#4285f4"; // Use Google blue for consistency
           
-          // Draw resize handles at corners
-          const handleSize = 8;
+          // Draw resize handles at corners as circles
+          const handleSize = 10; // Slightly bigger
           
-          // Top-left
-          ctx.fillRect(bounds.x1 - handleSize/2, bounds.y1 - handleSize/2, handleSize, handleSize);
+          // Top-left - position slightly outside
+          ctx.beginPath();
+          ctx.arc(bounds.x1 - 2, bounds.y1 - 2, handleSize/2, 0, Math.PI * 2);
+          ctx.fill();
           
-          // Top-right
-          ctx.fillRect(bounds.x2 - handleSize/2, bounds.y1 - handleSize/2, handleSize, handleSize);
+          // Top-right - position slightly outside
+          ctx.beginPath();
+          ctx.arc(bounds.x2 + 2, bounds.y1 - 2, handleSize/2, 0, Math.PI * 2);
+          ctx.fill();
           
-          // Bottom-left
-          ctx.fillRect(bounds.x1 - handleSize/2, bounds.y2 - handleSize/2, handleSize, handleSize);
+          // Bottom-left - position slightly outside
+          ctx.beginPath();
+          ctx.arc(bounds.x1 - 2, bounds.y2 + 2, handleSize/2, 0, Math.PI * 2);
+          ctx.fill();
           
-          // Bottom-right
-          ctx.fillRect(bounds.x2 - handleSize/2, bounds.y2 - handleSize/2, handleSize, handleSize);
+          // Bottom-right - position slightly outside
+          ctx.beginPath();
+          ctx.arc(bounds.x2 + 2, bounds.y2 + 2, handleSize/2, 0, Math.PI * 2);
+          ctx.fill();
         }
         
         ctx.setLineDash([])
@@ -820,26 +828,26 @@ export function WhiteboardEditor({
     if (!shape.selected) return null;
     
     const bounds = getShapeBounds(shape);
-    const handleSize = 8;
+    const handleSize = 10; // Match the size of the handle circles
     
-    // Check each handle
+    // Check each handle with adjusted positions
     // Top-left
-    if (Math.abs(x - bounds.x1) <= handleSize && Math.abs(y - bounds.y1) <= handleSize) {
+    if (Math.abs(x - (bounds.x1 - 2)) <= handleSize && Math.abs(y - (bounds.y1 - 2)) <= handleSize) {
       return "tl";
     }
     
     // Top-right
-    if (Math.abs(x - bounds.x2) <= handleSize && Math.abs(y - bounds.y1) <= handleSize) {
+    if (Math.abs(x - (bounds.x2 + 2)) <= handleSize && Math.abs(y - (bounds.y1 - 2)) <= handleSize) {
       return "tr";
     }
     
     // Bottom-left
-    if (Math.abs(x - bounds.x1) <= handleSize && Math.abs(y - bounds.y2) <= handleSize) {
+    if (Math.abs(x - (bounds.x1 - 2)) <= handleSize && Math.abs(y - (bounds.y2 + 2)) <= handleSize) {
       return "bl";
     }
     
     // Bottom-right
-    if (Math.abs(x - bounds.x2) <= handleSize && Math.abs(y - bounds.y2) <= handleSize) {
+    if (Math.abs(x - (bounds.x2 + 2)) <= handleSize && Math.abs(y - (bounds.y2 + 2)) <= handleSize) {
       return "br";
     }
     
@@ -1132,9 +1140,34 @@ export function WhiteboardEditor({
     
     // Draw blue border
     ctx.strokeStyle = 'rgba(66, 133, 244, 0.8)'
-    ctx.lineWidth = 1
-    ctx.setLineDash([5, 3])
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 5])
     ctx.strokeRect(x, y, width, height)
+    
+    // Draw corner circles
+    ctx.fillStyle = '#4285f4'
+    const handleSize = 10 // Slightly bigger
+    
+    // Top-left - position slightly outside
+    ctx.beginPath();
+    ctx.arc(x - 2, y - 2, handleSize/2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Top-right - position slightly outside
+    ctx.beginPath();
+    ctx.arc(x + width + 2, y - 2, handleSize/2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Bottom-left - position slightly outside
+    ctx.beginPath();
+    ctx.arc(x - 2, y + height + 2, handleSize/2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Bottom-right - position slightly outside
+    ctx.beginPath();
+    ctx.arc(x + width + 2, y + height + 2, handleSize/2, 0, Math.PI * 2);
+    ctx.fill();
+    
     ctx.setLineDash([])
   }, [getContext])
 
@@ -3467,6 +3500,91 @@ export function WhiteboardEditor({
     setContextMenuPosition(null);
   }, [shapes, toast]);
 
+  // Update cursor style based on position
+  const updateCursorStyle = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (tool !== "select" || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoomLevel - panOffset.x / zoomLevel;
+    const y = (e.clientY - rect.top) / zoomLevel - panOffset.y / zoomLevel;
+    
+    // Check if we're over a selected shape
+    const selectedShapeIndex = shapes.findIndex(shape => shape.selected);
+    
+    if (selectedShapeIndex !== -1) {
+      const shape = shapes[selectedShapeIndex];
+      const handle = getResizeHandle(shape, x, y);
+      
+      if (handle) {
+        // Set resize cursor based on which handle
+        switch (handle) {
+          case "tl":
+          case "br":
+            canvasRef.current.style.cursor = "nwse-resize";
+            break;
+          case "tr":
+          case "bl":
+            canvasRef.current.style.cursor = "nesw-resize";
+            break;
+          case "control":
+            canvasRef.current.style.cursor = "move";
+            break;
+        }
+        return;
+      }
+      
+      // Check if we're over the shape (for moving)
+      const bounds = getShapeBounds(shape);
+      if (
+        x >= bounds.x1 &&
+        x <= bounds.x2 &&
+        y >= bounds.y1 &&
+        y <= bounds.y2
+      ) {
+        canvasRef.current.style.cursor = "move";
+        return;
+      }
+    }
+    
+    // Check if we're over a multi-selected shape
+    const multiSelectedShape = shapes.find(shape => {
+      if (shape.multiSelected) {
+        const bounds = getShapeBounds(shape);
+        return (
+          x >= bounds.x1 &&
+          x <= bounds.x2 &&
+          y >= bounds.y1 &&
+          y <= bounds.y2
+        );
+      }
+      return false;
+    });
+    
+    if (multiSelectedShape) {
+      canvasRef.current.style.cursor = "move";
+      return;
+    }
+    
+    // Default cursor
+    canvasRef.current.style.cursor = "default";
+  }, [tool, shapes, getResizeHandle, getShapeBounds, zoomLevel, panOffset]);
+
+  // Add event listener for cursor style updates
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const handlePointerMove = (e: PointerEvent) => {
+      updateCursorStyle(e as unknown as React.PointerEvent<HTMLCanvasElement>);
+    };
+    
+    canvas.addEventListener("pointermove", handlePointerMove);
+    
+    return () => {
+      canvas.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [updateCursorStyle]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-zinc-900 touch-none">
       <WhiteboardToolbar
@@ -4217,10 +4335,12 @@ export function WhiteboardEditor({
             
             {/* Resize handles */}
             <div 
-              className="absolute bottom-0 right-0 w-8 h-8 bg-primary cursor-nwse-resize rounded-bl-md flex items-center justify-center"
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center"
               style={{
                 bottom: "0px",
-                right: "0px"
+                right: "0px",
+                backgroundColor: "transparent",
+                border: "none"
               }}
               onPointerDown={(e) => {
                 e.stopPropagation();
@@ -4263,7 +4383,7 @@ export function WhiteboardEditor({
                 document.addEventListener('pointerup', handlePointerUp);
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500 opacity-60">
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <polyline points="9 21 3 21 3 15"></polyline>
                 <line x1="21" y1="3" x2="14" y2="10"></line>
