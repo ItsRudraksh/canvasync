@@ -35,14 +35,14 @@ export function WhiteboardClient({
         title={whiteboard.title}
         breadcrumbs={[{ label: whiteboard.title }]}
       >
-        <div className="flex items-center gap-2 w-full justify-between">
+        <div className="flex items-center gap-2 w-full md:justify-end">
           <UserCounts 
             whiteboardId={whiteboard.id} 
-            canEdit={isOwner || isCollaborator} 
             currentUser={{
               id: currentUser.id,
               name: currentUser.name,
             }}
+            isOwner={isOwner}
           />
           <div className="flex items-center gap-4">
             {(isOwner || isCollaborator) && <ShareButton whiteboardId={whiteboard.id} />}
