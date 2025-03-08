@@ -662,9 +662,18 @@ export function WhiteboardEditor({
             ctx.textBaseline = "top";
             ctx.fillStyle = shape.color;
             
-            // If the shape is being edited, don't render it (the textarea will show instead)
-            if (shape.isEditing) {
+            // Check if this is the active text editor for the current user
+            const isCurrentUserEditing = activeTextEditor && activeTextEditor.id === shape.id;
+            
+            // If the current user is editing this text, don't render it (the textarea will show instead)
+            if (isCurrentUserEditing) {
               return;
+            }
+            
+            // For text being edited by other users, show a visual indicator
+            if (shape.isEditing && !isCurrentUserEditing) {
+              // Remove the blue dashed border indicator
+              // Just render the text normally without any special indicator
             }
             
             // Always split by newlines first to preserve explicit line breaks
@@ -1181,6 +1190,8 @@ export function WhiteboardEditor({
     // Create a deep copy of the shapes to avoid reference issues
     const shapesCopy = JSON.parse(JSON.stringify(newShapes));
     
+    console.log("Adding to history:", shapesCopy.length, "shapes at index", historyIndex);
+    
     // If we're not at the end of the history, truncate it
     const newHistory = history.slice(0, historyIndex + 1);
     
@@ -1191,6 +1202,8 @@ export function WhiteboardEditor({
     if (newHistory.length > 50) {
       newHistory.shift();
     }
+    
+    console.log("New history length:", newHistory.length);
     
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
@@ -1206,9 +1219,14 @@ export function WhiteboardEditor({
       const newIndex = historyIndex - 1;
       const previousState = history[newIndex];
       
+      console.log("Undoing to state:", previousState.length, "shapes");
+      
       // Update shapes with the previous state
       setShapes(previousState);
       setHistoryIndex(newIndex);
+      
+      // Clear any shapes marked for erasing
+      setShapesToErase([]);
       
       // Update undo/redo availability
       setCanUndo(newIndex > 0);
@@ -1223,18 +1241,30 @@ export function WhiteboardEditor({
       
       // Save canvas state
       saveCanvasState(previousState);
+      
+      // Force redraw to ensure shapes are properly restored
+      redrawCanvas();
     }
-  }, [history, historyIndex, id, instanceId, socket, saveCanvasState]);
+  }, [history, historyIndex, id, instanceId, socket, saveCanvasState, redrawCanvas]);
 
   // Handle redo
   const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       const nextState = history[newIndex];
+      const currentState = history[historyIndex];
+      
+      console.log("Redoing to state:", nextState.length, "shapes from", currentState.length, "shapes");
+      
+      // Check if this is an eraser action (fewer shapes in next state than current state)
+      const isEraserAction = nextState.length < currentState.length;
       
       // Update shapes with the next state
       setShapes(nextState);
       setHistoryIndex(newIndex);
+      
+      // Clear any shapes marked for erasing
+      setShapesToErase([]);
       
       // Update undo/redo availability
       setCanUndo(true);
@@ -1249,8 +1279,11 @@ export function WhiteboardEditor({
       
       // Save canvas state
       saveCanvasState(nextState);
+      
+      // Force redraw to ensure erased shapes are properly removed
+      redrawCanvas();
     }
-  }, [history, historyIndex, id, instanceId, socket, saveCanvasState]);
+  }, [history, historyIndex, id, instanceId, socket, saveCanvasState, redrawCanvas]);
 
   // Handle eraser functionality
   const handleEraserMove = useCallback((x: number, y: number) => {
@@ -1290,8 +1323,12 @@ export function WhiteboardEditor({
   const handleEraserEnd = useCallback(() => {
     if (shapesToErase.length === 0) return;
     
+    console.log("Erasing shapes:", shapesToErase.length, "shapes");
+    
     // Remove the highlighted shapes
     const updatedShapes = shapes.filter(shape => !shapesToErase.includes(shape.id));
+    
+    console.log("After erasing:", updatedShapes.length, "shapes remain");
     
     setShapes(updatedShapes);
     
@@ -1515,7 +1552,8 @@ export function WhiteboardEditor({
           ...shape,
           text: e.target.value,
           textWidth: textEditorSize.width,
-          textHeight: textEditorSize.height
+          textHeight: textEditorSize.height,
+          isEditing: true // Ensure the isEditing flag is preserved
         };
       }
       return shape;
@@ -1526,7 +1564,8 @@ export function WhiteboardEditor({
       ...activeTextEditor,
       text: e.target.value,
       textWidth: textEditorSize.width,
-      textHeight: textEditorSize.height
+      textHeight: textEditorSize.height,
+      isEditing: true // Ensure the isEditing flag is preserved
     });
     
     // Real-time sync of text changes
@@ -1537,7 +1576,8 @@ export function WhiteboardEditor({
         ...activeTextEditor,
         text: e.target.value,
         textWidth: textEditorSize.width,
-        textHeight: textEditorSize.height
+        textHeight: textEditorSize.height,
+        isEditing: true // Ensure the isEditing flag is preserved
       },
       shapes: updatedShapes
     });
@@ -2739,6 +2779,9 @@ export function WhiteboardEditor({
         console.log("Remote undo/redo update received");
         // Update shapes with the remote shapes
         setShapes(remoteShapes);
+        
+        // Clear any shapes marked for erasing
+        setShapesToErase([]);
         
         // Add to history
         const shapesCopy = JSON.parse(JSON.stringify(remoteShapes));
@@ -4128,11 +4171,14 @@ export function WhiteboardEditor({
           ref={textEditorContainerRef}
           className="absolute"
           style={{
-            left: `${activeTextEditor.points[0].x + panOffset.x}px`,
-            top: `${activeTextEditor.points[0].y + panOffset.y}px`,
+            left: `${activeTextEditor.points[0].x + panOffset.x - 10}px`, // Add extra padding on left
+            top: `${activeTextEditor.points[0].y + panOffset.y - 10}px`, // Add extra padding on top
             zIndex: 100,
-            width: `${textEditorSize.width}px`,
-            height: `${textEditorSize.height}px`
+            width: `${textEditorSize.width + 20}px`, // Add extra width to cover text
+            height: `${textEditorSize.height + 20}px`, // Add extra height to cover text
+            backgroundColor: "#000000", // Solid background to hide rendered text underneath
+            borderRadius: "4px",
+            padding: "10px" // Add padding to position the textarea correctly
           }}
         >
           <div className="relative w-full h-full flex flex-col">
@@ -4148,12 +4194,21 @@ export function WhiteboardEditor({
                   }
                 }, 200);
               }}
-              className="bg-transparent text-current border border-primary resize-none overflow-auto w-full h-full p-2 focus:ring-2 focus:ring-primary whitespace-pre-line text-pretty"
+              onKeyDown={(e) => {
+                // Save text and exit editing mode when Escape is pressed
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  handleTextBlur();
+                  setTool('select');
+                }
+              }}
+              className="bg-transparent text-current border border-primary resize-none overflow-auto w-full h-full p-2 focus:ring-2 focus:ring-primary whitespace-pre-wrap"
               style={{
                 color: activeTextEditor.color,
                 fontSize: `${activeTextEditor.fontSize || activeTextEditor.width * 10}px`,
                 fontFamily: "'Segoe Print', 'Comic Sans MS', cursive",
                 lineHeight: "1.2",
+                whiteSpace: "pre-wrap"
               }}
               placeholder="Type here..."
               autoFocus
@@ -4163,6 +4218,10 @@ export function WhiteboardEditor({
             {/* Resize handles */}
             <div 
               className="absolute bottom-0 right-0 w-8 h-8 bg-primary cursor-nwse-resize rounded-bl-md flex items-center justify-center"
+              style={{
+                bottom: "0px",
+                right: "0px"
+              }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -4180,6 +4239,7 @@ export function WhiteboardEditor({
                   const dx = moveEvent.clientX - startX;
                   const dy = moveEvent.clientY - startY;
                   
+                  // Account for the extra padding (20px total) when calculating new dimensions
                   const newWidth = Math.max(100, startWidth + dx);
                   const newHeight = Math.max(40, startHeight + dy);
                   
