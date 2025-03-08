@@ -63,6 +63,7 @@ const stage2Tools = [
 const stage3Tools = [
   { id: "curved-arrow", icon: CornerDownRight, label: "Curved Arrow", shortcut: "4" },
   { id: "diamond", icon: Diamond, label: "Diamond", shortcut: "5" },
+  { id: "text", icon: Type, label: "Text", shortcut: "T" },
 ]
 
 // Combine all tools for the complete toolbar
@@ -145,7 +146,7 @@ export function WhiteboardToolbar({
             <span className="sr-only">Toggle tools</span>
           </CollapsibleTrigger>
         </div>
-        <CollapsibleContent className="flex flex-col gap-1 p-2 pt-0 md:p-2">
+        <CollapsibleContent className="flex flex-col p-2 pt-0 md:p-2">
           <div className="flex flex-col gap-2">
             <TooltipProvider>
               {/* Stage 1 Tools */}

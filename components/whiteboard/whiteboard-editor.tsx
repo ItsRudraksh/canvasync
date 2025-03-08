@@ -674,12 +674,18 @@ export function WhiteboardEditor({
             lines.forEach(line => {
               // For each explicit line, also handle word wrapping if needed
               if (shape.textWidth) {
-                const words = line.split(' ');
-                let currentLine = '';
-                
                 // Handle empty lines (just a newline character)
                 if (line.trim() === '') {
                   y += fontSize * 1.2; // Add line height for empty lines
+                  return;
+                }
+                
+                const words = line.split(' ');
+                let currentLine = '';
+                
+                // If line is empty (just spaces), add line height and return
+                if (words.length === 0 || (words.length === 1 && words[0] === '')) {
+                  y += fontSize * 1.2; // Line height
                   return;
                 }
                 
@@ -704,6 +710,12 @@ export function WhiteboardEditor({
                 }
               } else {
                 // No width constraint, just draw the line
+                // Handle empty lines (just a newline character)
+                if (line.trim() === '') {
+                  y += fontSize * 1.2; // Add line height for empty lines
+                  return;
+                }
+                
                 ctx.fillText(line, point.x, y);
                 y += fontSize * 1.2; // Line height
               }
@@ -2018,10 +2030,18 @@ export function WhiteboardEditor({
         setTextEditorSize({ width: 300, height: 150 });
         setActiveTextEditor(newShape);
         
+        // Set a flag to prevent immediate blur
+        setIsResizingTextEditor(true);
+        
         // Focus the text editor in the next render cycle
         setTimeout(() => {
           if (textEditorRef.current) {
             textEditorRef.current.focus();
+            
+            // After a short delay, allow normal blur behavior
+            setTimeout(() => {
+              setIsResizingTextEditor(false);
+            }, 100);
           }
         }, 0);
       }
@@ -2045,6 +2065,35 @@ export function WhiteboardEditor({
       // const x = e.clientX - rect.left - panOffset.x
       // const y = e.clientY - rect.top - panOffset.y
       const { x, y } = screenToCanvasCoordinates(e.clientX, e.clientY)
+
+      // If we have an active text editor, check if we're clicking outside of it
+      if (activeTextEditor && !isResizingTextEditor) {
+        // Check if the click is outside the text editor
+        const textEditorBounds = {
+          x1: activeTextEditor.points[0].x,
+          y1: activeTextEditor.points[0].y,
+          x2: activeTextEditor.points[0].x + (activeTextEditor.textWidth || 300),
+          y2: activeTextEditor.points[0].y + (activeTextEditor.textHeight || 150)
+        };
+        
+        const isClickOutsideTextEditor = 
+          x < textEditorBounds.x1 || 
+          x > textEditorBounds.x2 || 
+          y < textEditorBounds.y1 || 
+          y > textEditorBounds.y2;
+        
+        if (isClickOutsideTextEditor) {
+          // Use a small timeout to ensure the click event doesn't immediately trigger blur and then another action
+          setTimeout(() => {
+            handleTextBlur();
+          }, 10);
+          
+          // Switch to select tool when clicking outside of text box
+          setTool('pen');
+          
+          return;
+        }
+      }
 
       // Handle panning with hand tool - moved up to be handled first
       if (tool === "hand") {
@@ -2083,10 +2132,18 @@ export function WhiteboardEditor({
         setTextEditorSize({ width: 300, height: 150 });
         setActiveTextEditor(newShape);
         
+        // Set a flag to prevent immediate blur
+        setIsResizingTextEditor(true);
+        
         // Focus the text editor in the next render cycle
         setTimeout(() => {
           if (textEditorRef.current) {
             textEditorRef.current.focus();
+            
+            // After a short delay, allow normal blur behavior
+            setTimeout(() => {
+              setIsResizingTextEditor(false);
+            }, 300);
           }
         }, 0);
         
@@ -3917,10 +3974,18 @@ export function WhiteboardEditor({
                           setTextEditorSize({ width: 300, height: 150 });
                         }
                         
+                        // Set a flag to prevent immediate blur
+                        setIsResizingTextEditor(true);
+                        
                         // Focus the text editor in the next render cycle
                         setTimeout(() => {
                           if (textEditorRef.current) {
                             textEditorRef.current.focus();
+                            
+                            // After a short delay, allow normal blur behavior
+                            setTimeout(() => {
+                              setIsResizingTextEditor(false);
+                            }, 100);
                           }
                         }, 0);
                       }}
@@ -4083,7 +4148,7 @@ export function WhiteboardEditor({
                   }
                 }, 200);
               }}
-              className="bg-transparent text-current border border-primary resize-none overflow-auto w-full h-full p-2 focus:ring-2 focus:ring-primary whitespace-pre-wrap"
+              className="bg-transparent text-current border border-primary resize-none overflow-auto w-full h-full p-2 focus:ring-2 focus:ring-primary whitespace-pre-line text-pretty"
               style={{
                 color: activeTextEditor.color,
                 fontSize: `${activeTextEditor.fontSize || activeTextEditor.width * 10}px`,
