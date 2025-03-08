@@ -32,7 +32,11 @@ export const metadata: Metadata = {
     title: "CanvaSync - Where Ideas Flow and Collaboration Grows",
     description: "A powerful digital whiteboard platform for real-time collaboration, creativity, and communication.",
   },
+  icons: {
+    icon: "/image.png",
+  },
 };
+
 
 export default function RootLayout({
   children,
