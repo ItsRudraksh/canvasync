@@ -190,6 +190,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Architecture Diagram
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px', 'textColor': '#FFFFFF'}}}%%
 graph TD
     A[Users] -->|Interact via Browser/Mobile| B(Frontend - Next.js/React);
     B -->|HTTP Requests| C(Backend API - Next.js API Routes);
@@ -300,7 +301,7 @@ erDiagram
 ## Component Interaction: Real-time Whiteboard Editing
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px', 'textColor': '#FFFFFF'}}}%%
 sequenceDiagram
     participant User
     participant WhiteboardPage as "Whiteboard Page (app/whiteboard/[id]/edit/page.tsx)"
@@ -384,7 +385,7 @@ graph TD
 ### 1. Email/Password Registration & Login Flow
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px', 'textColor': '#FFFFFF'}}}%%
 sequenceDiagram
     participant User
     participant Browser as "Browser (Frontend)"
@@ -439,7 +440,7 @@ sequenceDiagram
 ### 2. Google OAuth Flow
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px', 'textColor': '#FFFFFF'}}}%%
 sequenceDiagram
     participant User
     participant Browser as "Browser (Frontend)"
