@@ -30,3 +30,6 @@ a.md
 
 # Local Netlify folder
 .netlify
+key.json
+.qodo
+.vscode

@@ -1,31 +1,36 @@
-import type { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { compare } from "bcryptjs"
-import { db } from "@/lib/db"
-import { PrismaAdapter } from "@auth/prisma-adapter"
+import type { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import { compare } from "bcryptjs";
+import { db } from "@/lib/db";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 
 // Extend the built-in session types
 declare module "next-auth" {
   interface Session {
     user: {
-      id: string
-      name?: string | null
-      email?: string | null
-      avatar?: string | null
-    }
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      avatar?: string | null;
+    };
   }
-  
+
   interface JWT {
-    id: string
-    name?: string | null
-    email?: string | null
-    avatar?: string | null
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
   }
 }
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -34,7 +39,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          return null;
         }
 
         const user = await db.user.findUnique({
@@ -46,16 +51,19 @@ export const authOptions: NextAuthOptions = {
             password: true,
             avatar: true,
           },
-        })
+        });
 
         if (!user) {
-          return null
+          return null;
         }
 
-        const isPasswordValid = await compare(credentials.password, user.password)
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
 
         if (!isPasswordValid) {
-          return null
+          return null;
         }
 
         return {
@@ -63,7 +71,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           avatar: user.avatar,
-        }
+        };
       },
     }),
   ],
@@ -77,23 +85,33 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user) {
-        token.id = user.id
-        token.name = user.name
-        token.email = user.email
-        token.avatar = user.avatar
+        token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.avatar = user.avatar;
       }
-      return token
+      return token;
     },
     session: async ({ session, token }) => {
       if (token) {
-        session.user.id = token.id as string
-        session.user.name = token.name
-        session.user.email = token.email
-        session.user.avatar = token.avatar as string | null
+        session.user.id = token.id as string;
+        session.user.name = token.name;
+        session.user.email = token.email;
+        session.user.avatar = token.avatar as string | null;
       }
-      return session
+      return session;
     },
   },
   debug: process.env.NODE_ENV === "development",
-}
-
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
+};

@@ -8,10 +8,11 @@
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "socket": "node server/socket-server.js",
-    "deploy": "npx prisma generate && npm run build"
+    "deploy": "npx prisma migrate dev && npm run build"
   },
   "dependencies": {
     "@auth/core": "latest",
+    "@auth/firebase-adapter": "^2.8.0",
     "@auth/prisma-adapter": "latest",
     "@aws-sdk/client-s3": "^3.758.0",
     "@hookform/resolvers": "^3.9.1",
@@ -52,6 +53,8 @@
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
     "express": "latest",
+    "firebase": "^11.6.0",
+    "firebase-admin": "^13.2.0",
     "framer-motion": "^12.4.7",
     "fs": "^0.0.1-security",
     "http": "latest",

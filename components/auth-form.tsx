@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 
 interface AuthFormProps {
   type: "login" | "register" | "forgot-password";
@@ -39,17 +40,17 @@ export function AuthForm({
   error,
   isLoading = false,
   email = "",
-  setEmail = () => {},
+  setEmail = () => { },
   password = "",
-  setPassword = () => {},
+  setPassword = () => { },
   name = "",
-  setName = () => {},
+  setName = () => { },
   otp = "",
-  setOtp = () => {},
+  setOtp = () => { },
   showOtpInput = false,
   showPasswordInput = false,
   passwordErrors = [],
-  handlePasswordChange = () => {},
+  handlePasswordChange = () => { },
 }: AuthFormProps) {
   const getTitle = () => {
     if (type === "login") return "Welcome back";
@@ -124,108 +125,125 @@ export function AuthForm({
         )}
 
         {/* Login, Register, Forgot Password - Email field */}
-        {((type === "login") || 
-          (type === "register" && !showOtpInput) || 
+        {((type === "login") ||
+          (type === "register" && !showOtpInput) ||
           (type === "forgot-password" && !showOtpInput)) && (
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <EnhancedInput
-              id="email"
-              type="email"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-          </div>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <EnhancedInput
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
         {/* Login, Register - Password field */}
-        {((type === "login") || 
-          (type === "register" && !showOtpInput) || 
+        {((type === "login") ||
+          (type === "register" && !showOtpInput) ||
           (type === "forgot-password" && showPasswordInput)) && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              {type === "login" && (
-                <Link href="/auth/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
-                  Forgot password?
-                </Link>
-              )}
-            </div>
-            <EnhancedInput
-              id="password"
-              type="password"
-              value={password}
-              onChange={type === "register" || (type === "forgot-password" && showPasswordInput) 
-                ? handlePasswordChange 
-                : (e) => setPassword(e.target.value)}
-              required
-              disabled={isLoading}
-            />
-            
-            {/* Password requirements for Register and Reset Password */}
-            {((type === "register" && !showOtpInput) || 
-              (type === "forgot-password" && showPasswordInput)) && 
-              passwordErrors.length > 0 && (
-              <p className="text-sm text-red-500 mt-1">{passwordErrors[0]}</p>
-            )}
-            
-            {/* Password requirements checklist */}
-            {((type === "register" && !showOtpInput) || 
-              (type === "forgot-password" && showPasswordInput)) && (
-              <div className="mt-2 space-y-1 text-sm text-neutral-500">
-                <p>Password must contain:</p>
-                <ul className="list-disc list-inside space-y-1 pl-2">
-                  <li className={cn(password.length >= 8 ? "text-green-500" : "")}>
-                    At least 8 characters
-                  </li>
-                  <li className={cn((password.match(/[A-Z]/g) || []).length >= 2 ? "text-green-500" : "")}>
-                    At least two uppercase letters
-                  </li>
-                  <li className={cn((password.match(/[a-z]/g) || []).length >= 2 ? "text-green-500" : "")}>
-                    At least two lowercase letters
-                  </li>
-                  <li className={cn((password.match(/[0-9]/g) || []).length >= 2 ? "text-green-500" : "")}>
-                    At least two numbers
-                  </li>
-                  <li className={cn((password.match(/[^A-Za-z0-9]/g) || []).length >= 2 ? "text-green-500" : "")}>
-                    At least two special characters
-                  </li>
-                </ul>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                {type === "login" && (
+                  <Link href="/auth/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
+                    Forgot password?
+                  </Link>
+                )}
               </div>
-            )}
-          </div>
-        )}
+              <EnhancedInput
+                id="password"
+                type="password"
+                value={password}
+                onChange={type === "register" || (type === "forgot-password" && showPasswordInput)
+                  ? handlePasswordChange
+                  : (e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+
+              {/* Password requirements for Register and Reset Password */}
+              {((type === "register" && !showOtpInput) ||
+                (type === "forgot-password" && showPasswordInput)) &&
+                passwordErrors.length > 0 && (
+                  <p className="text-sm text-red-500 mt-1">{passwordErrors[0]}</p>
+                )}
+
+              {/* Password requirements checklist */}
+              {((type === "register" && !showOtpInput) ||
+                (type === "forgot-password" && showPasswordInput)) && (
+                  <div className="mt-2 space-y-1 text-sm text-neutral-500">
+                    <p>Password must contain:</p>
+                    <ul className="list-disc list-inside space-y-1 pl-2">
+                      <li className={cn(password.length >= 8 ? "text-green-500" : "")}>
+                        At least 8 characters
+                      </li>
+                      <li className={cn((password.match(/[A-Z]/g) || []).length >= 2 ? "text-green-500" : "")}>
+                        At least two uppercase letters
+                      </li>
+                      <li className={cn((password.match(/[a-z]/g) || []).length >= 2 ? "text-green-500" : "")}>
+                        At least two lowercase letters
+                      </li>
+                      <li className={cn((password.match(/[0-9]/g) || []).length >= 2 ? "text-green-500" : "")}>
+                        At least two numbers
+                      </li>
+                      <li className={cn((password.match(/[^A-Za-z0-9]/g) || []).length >= 2 ? "text-green-500" : "")}>
+                        At least two special characters
+                      </li>
+                    </ul>
+                  </div>
+                )}
+            </div>
+          )}
 
         {/* OTP Input for Register and Forgot Password */}
-        {((type === "register" && showOtpInput) || 
+        {((type === "register" && showOtpInput) ||
           (type === "forgot-password" && showOtpInput && !showPasswordInput)) && (
-          <div className="space-y-2">
-            <Label htmlFor="otp">Verification Code</Label>
-            <EnhancedInput
-              id="otp"
-              type="text"
-              placeholder="Enter 6-digit code"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              maxLength={6}
-              pattern="[0-9]{6}"
-              disabled={isLoading}
-            />
-          </div>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="otp">Verification Code</Label>
+              <EnhancedInput
+                id="otp"
+                type="text"
+                placeholder="Enter 6-digit code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                required
+                maxLength={6}
+                pattern="[0-9]{6}"
+                disabled={isLoading}
+              />
+            </div>
+          )}
 
-        <Button 
-          type="submit" 
-          className="w-full mt-6" 
+        <Button
+          type="submit"
+          className="w-full mt-6"
           disabled={isLoading}
         >
           {getButtonText()}
         </Button>
       </form>
+
+      {/* Add the Google sign-in option for login and register */}
+      {(type === "login" || type === "register" && !showOtpInput) && (
+        <>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-zinc-900 text-gray-500 dark:text-gray-400">
+                Or continue with
+              </span>
+            </div>
+          </div>
+          <GoogleSignInButton />
+        </>
+      )}
 
       <div className="mt-6 text-center text-sm">
         {type === "login" ? (
