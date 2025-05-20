@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "socket": "node server/socket-server.js",
+    "socket": "cd server && npm run dev",
     "deploy": "npx prisma migrate dev && npm run build"
   },
   "dependencies": {

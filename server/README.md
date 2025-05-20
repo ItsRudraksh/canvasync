@@ -52,8 +52,9 @@ Your WebSocket server will be available at the URL provided by Render.
 After deploying your WebSocket server, you need to update your frontend to connect to the new WebSocket URL. Update your frontend code to use the secure WebSocket protocol (wss://) with the URL of your deployed server.
 
 Example:
+
 ```javascript
-const socket = io('wss://your-deployed-server-url');
+const socket = io("wss://your-deployed-server-url");
 ```
 
 ## Environment Variables
@@ -70,4 +71,4 @@ If you encounter CORS issues, make sure:
 
 1. Your WebSocket server's CORS settings allow your frontend domain
 2. You're using the secure WebSocket protocol (wss://) for HTTPS frontends
-3. Your frontend is connecting to the correct WebSocket URL 
+3. Your frontend is connecting to the correct WebSocket URL
