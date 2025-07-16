@@ -1,37 +1,48 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ErrorPage() {
-  const searchParams = useSearchParams()
-  const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const errorType = searchParams.get("error")
+    const errorType = searchParams.get("error");
 
     if (errorType === "CredentialsSignin") {
-      setError("Invalid email or password")
+      setError("Invalid email or password");
     } else if (errorType === "AccessDenied") {
-      setError("Access denied. You don't have permission to access this resource.")
+      setError(
+        "Access denied. You don't have permission to access this resource."
+      );
     } else if (errorType) {
-      setError(`Authentication error: ${errorType}`)
+      setError(`Authentication error: ${errorType}`);
     } else {
-      setError("An unknown error occurred")
+      setError("An unknown error occurred");
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Authentication Error</CardTitle>
-          <CardDescription>There was a problem with your authentication</CardDescription>
+          <CardDescription>
+            There was a problem with your authentication
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
@@ -46,6 +57,5 @@ export default function ErrorPage() {
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
-
